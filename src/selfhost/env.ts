@@ -72,13 +72,10 @@ export function enableSelfhost(
   const monthStartDay = positiveInt(env, 'USAGE_MONTH_START_DAY', 1);
   if (monthStartDay > 31)
     throw new Error('USAGE_MONTH_START_DAY must be between 1 and 31.');
-  const weekStartDay = env.USAGE_WEEK_START?.trim() || 'mon';
-  if (weekStartDay !== 'mon' && weekStartDay !== 'sun')
-    throw new Error('USAGE_WEEK_START must be mon or sun.');
   const backend = createSelfhostBackend({
     databasePath: deps.databasePath,
     workspace: deps.workspace,
-    usage: { monthStartDay, weekStartDay },
+    usage: { monthStartDay },
     discord: discordSettings(env, deps.discordClient),
   });
   config.selfhost = {

@@ -1761,3 +1761,13 @@ describe('withLock', () => {
     expect(events).toEqual(['first', 'second']);
   });
 });
+
+describe('parseResetsIn', () => {
+  it('reads the usage page wording', async () => {
+    const { parseResetsIn } = await import('../../src/selfhost/routes.js');
+    expect(parseResetsIn('Resets in 1d 15h')).toBe((24 + 15) * 3600_000);
+    expect(parseResetsIn('3h 20m')).toBe((3 * 60 + 20) * 60_000);
+    expect(parseResetsIn('soon')).toBeUndefined();
+    expect(parseResetsIn('1d later')).toBeUndefined();
+  });
+});

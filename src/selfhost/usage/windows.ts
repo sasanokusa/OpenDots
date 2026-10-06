@@ -2,19 +2,31 @@ export const TOKYO_OFFSET_MS = 9 * 3600_000;
 const HOUR_MS = 3600_000;
 const DAY_MS = 24 * HOUR_MS;
 
-export function fiveHourStart(now: number): number {
-  return now - 5 * HOUR_MS;
-}
+/**
+ * CommandCode's 5-hour and 7-day windows open on the first request and reset
+ * exactly that long afterwards; there is no fixed clock or calendar boundary.
+ */
+export const SESSION_WINDOWS = {
+  fiveHour: 5 * HOUR_MS,
+  week: 7 * DAY_MS,
+} as const;
+export type SessionWindow = keyof typeof SESSION_WINDOWS;
 
-export function weekStart(
+/**
+ * Start of the window active at `now`, given a way to find the first request
+ * at or after a time. Walks forward from `from`; undefined = no open window.
+ */
+export function sessionStart(
+  length: number,
   now: number,
-  startDay: 'mon' | 'sun' = 'mon',
-): number {
-  const local = now + TOKYO_OFFSET_MS;
-  const midnight = Math.floor(local / DAY_MS) * DAY_MS;
-  const weekday = new Date(midnight).getUTCDay();
-  const back = startDay === 'mon' ? (weekday + 6) % 7 : weekday;
-  return midnight - back * DAY_MS - TOKYO_OFFSET_MS;
+  from: number,
+  firstRequestAt: (from: number) => number | undefined,
+  knownStart?: number,
+): number | undefined {
+  let start = knownStart ?? firstRequestAt(from);
+  while (start !== undefined && start + length <= now)
+    start = firstRequestAt(start + length);
+  return start !== undefined && start <= now ? start : undefined;
 }
 
 function daysInMonth(year: number, month: number): number {
@@ -48,6 +60,11 @@ export function monthStart(now: number, startDay = 1): number {
       startDay,
     ) - TOKYO_OFFSET_MS
   );
+}
+
+/** The billing-month boundary after `start` (a value returned by monthStart). */
+export function nextMonthStart(start: number, startDay = 1): number {
+  return monthStart(start + 32 * DAY_MS, startDay);
 }
 
 export function dayOfMonth(now: number): number {

@@ -41,9 +41,30 @@ const role = (weekUSD: number, monthUSD: number, monthlyCapUSD?: number) => ({
 const summary: UsageSummary = {
   at: 0,
   windows: {
-    fiveHour: { usedUSD: 3.5, limitUSD: 14, ratio: 0.25, since: 0 },
-    week: { usedUSD: 29.75, limitUSD: 35, ratio: 0.85, since: 0 },
-    month: { usedUSD: 70, limitUSD: 70, ratio: 1, since: 0 },
+    fiveHour: {
+      usedUSD: 3.5,
+      limitUSD: 14,
+      ratio: 0.25,
+      since: 0,
+      resetsAt: 5 * 3600_000,
+      externalUSD: 0,
+    },
+    week: {
+      usedUSD: 29.75,
+      limitUSD: 35,
+      ratio: 0.85,
+      since: 0,
+      resetsAt: 7 * 86_400_000,
+      externalUSD: 0,
+    },
+    month: {
+      usedUSD: 70,
+      limitUSD: 70,
+      ratio: 1,
+      since: 0,
+      resetsAt: 30 * 86_400_000,
+      externalUSD: 0,
+    },
   },
   byRole: {
     router: role(0, 0),

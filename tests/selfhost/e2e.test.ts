@@ -516,3 +516,35 @@ it('answers owner DMs on Discord in a thread the web UI can read', async () => {
     selfhost.runner.getThreadMessages(thread.id).map((m) => m.content),
   ).toEqual(['Discordから', 'Discord reply']);
 });
+
+it('takes the CommandCode usage page as an observation', async () => {
+  const { app } = fixture('off');
+  const put = (body: unknown) =>
+    app.request('/api/selfhost/usage/observed', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  expect((await put({ week: { percent: 1 } })).status).toBe(400);
+  expect((await put({ week: { percent: 1, resetsIn: 'soon' } })).status).toBe(
+    400,
+  );
+  expect((await put({ week: { percent: 1, resetsIn: '8d' } })).status).toBe(
+    400,
+  );
+  const ok = await put({
+    fiveHour: { percent: 0 },
+    week: { percent: 1, resetsIn: 'Resets in 1d 15h' },
+    month: { percent: 13 },
+  });
+  expect(ok.status).toBe(200);
+  const usage = (await (
+    await app.request('/api/selfhost/usage')
+  ).json()) as any;
+  expect(usage.summary.windows.week.usedUSD).toBeCloseTo(0.35, 6);
+  expect(usage.summary.windows.month.usedUSD).toBeCloseTo(9.1, 6);
+  expect(usage.summary.windows.fiveHour.resetsAt).toBeNull();
+  const resetIn = usage.summary.windows.week.resetsAt - Date.now();
+  expect(resetIn).toBeGreaterThan(39 * 3600_000 - 60_000);
+  expect(resetIn).toBeLessThanOrEqual(39 * 3600_000);
+});

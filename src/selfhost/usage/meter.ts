@@ -10,13 +10,37 @@ import {
   type RoleName,
 } from '../config/models.js';
 import type { UsageRecord, UsageRecorder } from '../types.js';
-import { fiveHourStart, monthStart, weekStart } from './windows.js';
+import {
+  SESSION_WINDOWS,
+  monthStart,
+  nextMonthStart,
+  sessionStart,
+  type SessionWindow,
+} from './windows.js';
 
 export interface WindowUsage {
   usedUSD: number;
   limitUSD: number;
   ratio: number;
+  /** Window start; equals `at` when no window is open. */
   since: number;
+  /** When the open window resets; null when no window is open. */
+  resetsAt: number | null;
+  /** Spend outside OpenDots, learned from an owner observation. */
+  externalUSD: number;
+}
+
+export type WindowName = SessionWindow | 'month';
+
+/** What CommandCode's own usage page showed at one moment. */
+export interface UsageObservation {
+  window: WindowName;
+  /** null: the page said no window was open. */
+  windowStart: number | null;
+  usedUSD: number;
+  observedAt: number;
+  /** OpenDots' own spend in that window at `observedAt`. */
+  localUSD: number;
 }
 
 export interface RoleUsage {
@@ -47,7 +71,6 @@ export interface StoredUsage extends UsageRecord {
 export interface UsageMeterOptions {
   now?: () => number;
   prices?: Record<string, ModelPrice>;
-  weekStartDay?: 'mon' | 'sun';
   monthStartDay?: number;
   onRecord?: (row: StoredUsage) => void;
 }
@@ -59,12 +82,19 @@ export interface TokenCounts {
 }
 
 const roleNames = Object.keys(roles) as RoleName[];
+const windowLimits: Record<WindowName, number> = {
+  fiveHour: limits.fiveHourUSD,
+  week: limits.weekUSD,
+  month: limits.monthUSD,
+};
+/** Without an observation, look this far back for the 5-hour chain: long
+ * enough to contain a 5-hour gap (sleep), which realigns the chain exactly. */
+const FIVE_HOUR_LOOKBACK_MS = 48 * 3600_000;
 
 export class UsageMeter implements UsageRecorder {
   private db: DatabaseSync;
   private now: () => number;
   private prices: Record<string, ModelPrice>;
-  private weekStartDay: 'mon' | 'sun';
   private monthStartDay: number;
   private onRecord?: (row: StoredUsage) => void;
 
@@ -81,10 +111,12 @@ export class UsageMeter implements UsageRecorder {
         cost_usd REAL NOT NULL DEFAULT 0, status INTEGER NOT NULL, error_type TEXT);
       CREATE INDEX IF NOT EXISTS sh_usage_at ON sh_usage(at);
       CREATE TABLE IF NOT EXISTS sh_calibration(
-        model TEXT PRIMARY KEY, factor REAL NOT NULL, updated_at INTEGER NOT NULL);`);
+        model TEXT PRIMARY KEY, factor REAL NOT NULL, updated_at INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS sh_usage_observed(
+        window TEXT PRIMARY KEY, window_start INTEGER, used_usd REAL NOT NULL,
+        observed_at INTEGER NOT NULL, local_usd REAL NOT NULL);`);
     this.now = options.now ?? (() => Date.now());
     this.prices = options.prices ?? defaultPrices;
-    this.weekStartDay = options.weekStartDay ?? 'mon';
     this.monthStartDay = options.monthStartDay ?? 1;
     this.onRecord = options.onRecord;
   }
@@ -194,17 +226,134 @@ export class UsageMeter implements UsageRecorder {
     return rows.map((row) => row.at);
   }
 
+  /** Record what CommandCode's usage page shows, to include outside spend. */
+  observe(
+    window: WindowName,
+    observation: { usedUSD: number; windowStart: number | null },
+    at: number = this.now(),
+  ): UsageObservation {
+    if (!Number.isFinite(observation.usedUSD) || observation.usedUSD < 0)
+      throw new Error('usedUSD must be a non-negative number.');
+    const windowStart =
+      window === 'month'
+        ? monthStart(at, this.monthStartDay)
+        : observation.windowStart;
+    if (windowStart !== null && windowStart > at)
+      throw new Error('The window cannot start after the observation.');
+    const localUSD = windowStart === null ? 0 : this.totalUSD(windowStart, at);
+    this.db
+      .prepare(
+        `INSERT INTO sh_usage_observed(window, window_start, used_usd, observed_at, local_usd)
+         VALUES (?,?,?,?,?) ON CONFLICT(window) DO UPDATE SET window_start=excluded.window_start,
+         used_usd=excluded.used_usd, observed_at=excluded.observed_at, local_usd=excluded.local_usd`,
+      )
+      .run(window, windowStart, observation.usedUSD, at, localUSD);
+    return {
+      window,
+      windowStart,
+      usedUSD: observation.usedUSD,
+      observedAt: at,
+      localUSD,
+    };
+  }
+
+  observations(): UsageObservation[] {
+    const rows = this.db.prepare('SELECT * FROM sh_usage_observed').all() as {
+      window: WindowName;
+      window_start: number | null;
+      used_usd: number;
+      observed_at: number;
+      local_usd: number;
+    }[];
+    return rows.map((row) => ({
+      window: row.window,
+      windowStart: row.window_start,
+      usedUSD: row.used_usd,
+      observedAt: row.observed_at,
+      localUSD: row.local_usd,
+    }));
+  }
+
+  private firstRequestAt(from: number, to: number): number | undefined {
+    const row = this.db
+      .prepare(
+        'SELECT MIN(at) AS at FROM sh_usage WHERE at >= ? AND at <= ? AND status >= 200 AND status < 300',
+      )
+      .get(from, to) as { at: number | null };
+    return row.at ?? undefined;
+  }
+
+  private sessionWindowStart(
+    window: SessionWindow,
+    now: number,
+    observed?: UsageObservation,
+  ): number | undefined {
+    const length = SESSION_WINDOWS[window];
+    const first = (from: number) => this.firstRequestAt(from, now);
+    if (observed && observed.observedAt <= now)
+      return observed.windowStart === null
+        ? sessionStart(length, now, observed.observedAt, first)
+        : sessionStart(
+            length,
+            now,
+            observed.windowStart,
+            first,
+            observed.windowStart,
+          );
+    return sessionStart(
+      length,
+      now,
+      window === 'fiveHour' ? now - FIVE_HOUR_LOOKBACK_MS : 0,
+      first,
+    );
+  }
+
   summary(now: number = this.now()): UsageSummary {
-    const since = {
-      fiveHour: fiveHourStart(now),
-      week: weekStart(now, this.weekStartDay),
-      month: monthStart(now, this.monthStartDay),
+    const observed = new Map(
+      this.observations().map((item) => [item.window, item]),
+    );
+    const monthSince = monthStart(now, this.monthStartDay);
+    const since: Record<WindowName, number | undefined> = {
+      fiveHour: this.sessionWindowStart(
+        'fiveHour',
+        now,
+        observed.get('fiveHour'),
+      ),
+      week: this.sessionWindowStart('week', now, observed.get('week')),
+      month: monthSince,
     };
-    const windowUsage = (start: number, limitUSD: number): WindowUsage => {
-      const usedUSD = this.totalUSD(start, now);
-      return { usedUSD, limitUSD, ratio: usedUSD / limitUSD, since: start };
+    const windowUsage = (window: WindowName): WindowUsage => {
+      const limitUSD = windowLimits[window];
+      const start = since[window];
+      if (start === undefined)
+        return {
+          usedUSD: 0,
+          limitUSD,
+          ratio: 0,
+          since: now,
+          resetsAt: null,
+          externalUSD: 0,
+        };
+      const seen = observed.get(window);
+      const externalUSD =
+        seen && seen.windowStart === start && seen.observedAt <= now
+          ? Math.max(0, seen.usedUSD - seen.localUSD)
+          : 0;
+      const usedUSD = this.totalUSD(start, now) + externalUSD;
+      return {
+        usedUSD,
+        limitUSD,
+        ratio: usedUSD / limitUSD,
+        since: start,
+        resetsAt:
+          window === 'month'
+            ? nextMonthStart(start, this.monthStartDay)
+            : start + SESSION_WINDOWS[window],
+        externalUSD,
+      };
     };
-    const perRole = (start: number) => {
+    const perRole = (start: number | undefined) => {
+      if (start === undefined) return new Map<string, number>();
       const rows = this.db
         .prepare(
           'SELECT role, SUM(cost_usd) AS total FROM sh_usage WHERE at >= ? AND at <= ? GROUP BY role',
@@ -226,15 +375,15 @@ export class UsageMeter implements UsageRecorder {
         ...(weeklyTargetUSD !== undefined && { weeklyTargetUSD }),
       };
     }
-    const month = windowUsage(since.month, limits.monthUSD);
+    const month = windowUsage('month');
     // Day within the billing month, which may not start on the 1st.
-    const day = Math.floor((now - since.month) / 86_400_000) + 1;
+    const day = Math.floor((now - monthSince) / 86_400_000) + 1;
     const idealToDateUSD = policy.idealDailyUSD * day;
     return {
       at: now,
       windows: {
-        fiveHour: windowUsage(since.fiveHour, limits.fiveHourUSD),
-        week: windowUsage(since.week, limits.weekUSD),
+        fiveHour: windowUsage('fiveHour'),
+        week: windowUsage('week'),
         month,
       },
       byRole,

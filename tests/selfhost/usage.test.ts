@@ -13,12 +13,12 @@ import {
   isCoolingDown,
 } from '../../src/selfhost/usage/policy.js';
 import {
-  TOKYO_OFFSET_MS,
+  SESSION_WINDOWS,
   dayOfMonth,
-  fiveHourStart,
   localHour,
   monthStart,
-  weekStart,
+  nextMonthStart,
+  sessionStart,
 } from '../../src/selfhost/usage/windows.js';
 
 const iso = (value: string) => Date.parse(value);
@@ -75,29 +75,36 @@ const usage = (model: string, at = 0) => ({
 });
 
 describe('windows', () => {
-  it('starts the five-hour window five hours back', () => {
-    const now = iso('2026-10-05T15:30:00Z');
-    expect(fiveHourStart(now)).toBe(iso('2026-10-05T10:30:00Z'));
+  const first = (times: number[]) => (from: number) =>
+    times.find((time) => time >= from);
+
+  it('opens a session window on the first request and resets after its length', () => {
+    const t0 = iso('2026-10-01T06:00:00Z');
+    const times = [t0, t0 + HOUR, t0 + 6 * HOUR, t0 + 7 * HOUR];
+    const length = SESSION_WINDOWS.fiveHour;
+    expect(sessionStart(length, t0 + 2 * HOUR, 0, first(times))).toBe(t0);
+    // The first window ended at t0+5h; nothing opened until t0+6h.
+    expect(sessionStart(length, t0 + 5.5 * HOUR, 0, first(times))).toBe(
+      undefined,
+    );
+    expect(sessionStart(length, t0 + 8 * HOUR, 0, first(times))).toBe(
+      t0 + 6 * HOUR,
+    );
+    expect(sessionStart(length, t0 + 12 * HOUR, 0, first(times))).toBe(
+      undefined,
+    );
   });
 
-  it('uses Tokyo local midnight for the week start', () => {
-    const tuesdayJst = iso('2026-10-05T15:30:00Z');
-    expect(new Date(tuesdayJst + TOKYO_OFFSET_MS).getUTCDay()).toBe(2);
-    expect(weekStart(tuesdayJst)).toBe(iso('2026-10-04T15:00:00Z'));
-    expect(weekStart(tuesdayJst, 'mon')).toBe(iso('2026-10-04T15:00:00Z'));
-    expect(weekStart(tuesdayJst, 'sun')).toBe(iso('2026-10-03T15:00:00Z'));
-  });
-
-  it('includes the exact midnight and excludes the instant before it', () => {
-    const mondayMidnight = iso('2026-10-04T15:00:00Z');
-    expect(weekStart(mondayMidnight)).toBe(mondayMidnight);
-    expect(weekStart(mondayMidnight - 1)).toBe(iso('2026-09-27T15:00:00Z'));
-  });
-
-  it('handles Sunday for both week start days', () => {
-    const sundayNoonJst = iso('2026-10-04T03:00:00Z');
-    expect(weekStart(sundayNoonJst, 'sun')).toBe(iso('2026-10-03T15:00:00Z'));
-    expect(weekStart(sundayNoonJst, 'mon')).toBe(iso('2026-09-27T15:00:00Z'));
+  it('continues from a known start that local requests cannot see', () => {
+    const known = iso('2026-10-01T06:30:00Z');
+    const later = known + 8 * 24 * HOUR;
+    const length = SESSION_WINDOWS.week;
+    expect(sessionStart(length, known + HOUR, known, first([]), known)).toBe(
+      known,
+    );
+    expect(
+      sessionStart(length, later, known, first([later - HOUR]), known),
+    ).toBe(later - HOUR);
   });
 
   it('starts the month at JST midnight on day 1 by default', () => {
@@ -128,6 +135,15 @@ describe('windows', () => {
     expect(monthStart(lastDayOfNov, 31)).toBe(iso('2026-11-29T15:00:00Z'));
     const march = iso('2027-03-01T03:00:00Z');
     expect(monthStart(march, 30)).toBe(iso('2027-02-27T15:00:00Z'));
+  });
+
+  it('finds the next billing boundary, clamping short months', () => {
+    expect(nextMonthStart(iso('2026-09-21T15:00:00Z'), 22)).toBe(
+      iso('2026-10-21T15:00:00Z'),
+    );
+    expect(nextMonthStart(iso('2027-01-30T15:00:00Z'), 31)).toBe(
+      iso('2027-02-27T15:00:00Z'),
+    );
   });
 
   it('reports the Tokyo day of month and hour', () => {
@@ -292,20 +308,37 @@ describe('UsageMeter summary', () => {
     return meter;
   }
 
-  it('totals each window from its own start', () => {
+  it('totals each window from the request that opened it', () => {
     const { windows } = populated().summary();
-    expect(windows.fiveHour.since).toBe(iso('2026-10-13T22:00:00Z'));
-    expect(windows.week.since).toBe(iso('2026-10-11T15:00:00Z'));
+    // 5h: the 21:00 window expired at 02:00, the 02:00 request opened a new one.
+    expect(windows.fiveHour.since).toBe(now - HOUR);
+    expect(windows.fiveHour.resetsAt).toBe(now + 4 * HOUR);
+    // Week: the 09-29 window expired 10-06; the 10-10 request opened the next.
+    expect(windows.week.since).toBe(iso('2026-10-10T00:00:00Z'));
+    expect(windows.week.resetsAt).toBe(iso('2026-10-17T00:00:00Z'));
     expect(windows.month.since).toBe(iso('2026-09-30T15:00:00Z'));
+    expect(windows.month.resetsAt).toBe(iso('2026-10-31T15:00:00Z'));
     expect(windows.fiveHour.usedUSD).toBeCloseTo(1, 9);
-    expect(windows.week.usedUSD).toBeCloseTo(3, 9);
+    expect(windows.week.usedUSD).toBeCloseTo(7, 9);
     expect(windows.month.usedUSD).toBeCloseTo(7, 9);
     expect(windows.fiveHour.limitUSD).toBe(14);
     expect(windows.week.limitUSD).toBe(35);
     expect(windows.month.limitUSD).toBe(70);
     expect(windows.fiveHour.ratio).toBeCloseTo(1 / 14, 9);
-    expect(windows.week.ratio).toBeCloseTo(3 / 35, 9);
+    expect(windows.week.ratio).toBeCloseTo(7 / 35, 9);
     expect(windows.month.ratio).toBeCloseTo(0.1, 9);
+  });
+
+  it('reports no open window when the last one has expired', () => {
+    const { meter, spend } = ledger(now);
+    spend('worker', 1, now - 6 * HOUR);
+    const { fiveHour } = meter.summary().windows;
+    expect(fiveHour).toMatchObject({
+      usedUSD: 0,
+      ratio: 0,
+      resetsAt: null,
+      since: now,
+    });
   });
 
   it('splits spend by role and copies the configured targets', () => {
@@ -329,7 +362,7 @@ describe('UsageMeter summary', () => {
       monthlyCapUSD: 60,
     });
     expect(byRole.chat).toMatchObject({
-      weekUSD: 0,
+      weekUSD: expect.closeTo(4, 9),
       monthUSD: expect.closeTo(4, 9),
     });
     expect(byRole.escalation).toMatchObject({
@@ -353,18 +386,15 @@ describe('UsageMeter summary', () => {
     expect(pace.diffUSD).toBeCloseTo(7 - (70 / 30) * 14, 9);
   });
 
-  it('honours custom week and month start days', () => {
-    const { meter, spend } = ledger(now, {
-      weekStartDay: 'sun',
-      monthStartDay: 10,
-    });
+  it('honours a custom month start day', () => {
+    const { meter, spend } = ledger(now, { monthStartDay: 10 });
     spend('worker', 5, iso('2026-10-11T00:00:00Z'));
     spend('worker', 1, iso('2026-10-09T00:00:00Z'));
     const { windows } = meter.summary();
-    expect(windows.week.since).toBe(iso('2026-10-10T15:00:00Z'));
     expect(windows.month.since).toBe(iso('2026-10-09T15:00:00Z'));
-    expect(windows.week.usedUSD).toBeCloseTo(5, 9);
     expect(windows.month.usedUSD).toBeCloseTo(5, 9);
+    expect(windows.week.since).toBe(iso('2026-10-09T00:00:00Z'));
+    expect(windows.week.usedUSD).toBeCloseTo(6, 9);
   });
 
   it('filters totals by role and model', () => {
@@ -585,5 +615,68 @@ describe('billing month that does not start on the 1st', () => {
 
     const late = iso('2026-10-16T03:00:00Z'); // day 22 of the billing month
     expect(evaluatePolicy(meter, late).behindPace).toBe(true);
+  });
+});
+
+describe('observations from the CommandCode usage page', () => {
+  it('adds spend made outside OpenDots to the observed window only', () => {
+    const now = iso('2026-10-06T15:20:00Z'); // 00:20 JST
+    const { meter, spend } = ledger(now, { monthStartDay: 22 });
+    spend('chat', 0.1, now - 10 * MIN);
+    const weekStart = iso('2026-10-01T06:30:00Z');
+    meter.observe('week', { usedUSD: 0.35, windowStart: weekStart });
+    meter.observe('month', { usedUSD: 9.1, windowStart: null });
+    meter.observe('fiveHour', { usedUSD: 0, windowStart: null });
+
+    const { windows } = meter.summary();
+    expect(windows.week).toMatchObject({
+      since: weekStart,
+      resetsAt: weekStart + SESSION_WINDOWS.week,
+      usedUSD: expect.closeTo(0.35, 9),
+      externalUSD: expect.closeTo(0.25, 9),
+    });
+    expect(windows.month).toMatchObject({
+      since: iso('2026-09-21T15:00:00Z'),
+      resetsAt: iso('2026-10-21T15:00:00Z'),
+      usedUSD: expect.closeTo(9.1, 9),
+    });
+    // The page said no 5-hour window was open; the earlier local call is
+    // before the observation, so it cannot open one either.
+    expect(windows.fiveHour.resetsAt).toBeNull();
+
+    spend('worker', 2, now + MIN);
+    const later = meter.summary(now + 2 * MIN).windows;
+    expect(later.week.usedUSD).toBeCloseTo(2.35, 9);
+    expect(later.fiveHour).toMatchObject({
+      since: now + MIN,
+      usedUSD: expect.closeTo(2, 9),
+    });
+  });
+
+  it('drops the outside spend once the observed window resets', () => {
+    const now = iso('2026-10-06T15:20:00Z');
+    const { meter, spend } = ledger(now);
+    const weekStart = iso('2026-10-01T06:30:00Z');
+    meter.observe('week', { usedUSD: 5, windowStart: weekStart });
+    const afterReset = weekStart + SESSION_WINDOWS.week + HOUR;
+    spend('chat', 1, afterReset);
+    const { week } = meter.summary(afterReset + MIN).windows;
+    expect(week).toMatchObject({
+      since: afterReset,
+      usedUSD: expect.closeTo(1, 9),
+      externalUSD: 0,
+    });
+  });
+
+  it('rejects impossible observations', () => {
+    const now = iso('2026-10-06T15:20:00Z');
+    const { meter } = ledger(now);
+    expect(() =>
+      meter.observe('week', { usedUSD: -1, windowStart: null }),
+    ).toThrow();
+    expect(() =>
+      meter.observe('week', { usedUSD: 1, windowStart: now + HOUR }),
+    ).toThrow();
+    expect(meter.observations()).toEqual([]);
   });
 });
