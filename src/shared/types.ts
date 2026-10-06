@@ -108,6 +108,8 @@ export interface CallReceipt {
   error: string | null;
 }
 export interface SetupStatus {
+  /** Fork: which conversation backend is active. */
+  backend?: 'selfhost' | 'intelligence';
   intelligence: boolean;
   model: boolean;
   browser: boolean;

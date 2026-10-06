@@ -85,6 +85,7 @@ export function setupStatus(
       ? 'setup_required'
       : 'not_configured';
   return {
+    backend: config.selfhost ? 'selfhost' : 'intelligence',
     intelligence: !!(config.intelligenceKey || config.selfhost),
     model: !!(config.apiKey && config.model),
     browser: !!(config.browserUrl && config.browserSecret),
