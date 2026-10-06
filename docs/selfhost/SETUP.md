@@ -209,17 +209,18 @@ Cloudflare Zero Trustの「Access」でこのホスト名のSelf-hostedアプリ
 
 本番はsaserver（Ubuntu 24.04）で動いています。2026-10-07に次の形で配置しました。
 
-| 項目                                                                      | 内容                                                                                                                                                         |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| URL                                                                       | https://saserver.tailbf5177.ts.net:8443 （tailnetの中だけ。443番は別のサービスが使用中）                                                                     |
-| 置き場所                                                                  | `/mnt/ssd/opendots/app`（`selfhost`ブランチ）。`~/services/opendots` はそこへのリンク                                                                        |
-| Node.js                                                                   | `/mnt/ssd/opendots/node26`（v26。`~/.local/opt/node26` はそこへのリンク。システムのNode 20には触れていない）                                                 |
-| 設定                                                                      | `/mnt/ssd/opendots/app/.env`（権限600。`OWNER_TOKEN`、`APP_ORIGIN`、`PUBLIC_APP_URL`を追記済み）                                                             |
-| 常駐                                                                      | systemdのユーザーサービス `opendots.service`（`UMask=0077`。`/mnt/ssd`がマウントされるまで15秒ごとに起動をやり直す）                                         |
-| 公開                                                                      | `tailscale serve --bg --https=8443 http://127.0.0.1:4310`                                                                                                    |
-| データ                                                                    | `/mnt/ssd/opendots/app/data/opendots.sqlite`（権限600。SSD側のsdbとsdc）                                                                                     |
-| バックアップ                                                              | `opendots-backup.timer` が毎日4:30にシステムディスク（sda）の `~/backups/opendots` へ保存し、14世代残す。データと別のディスクに置くため、SSDには移していない |
-| 画面を開くと`OWNER_TOKEN`の入力を求められます。値はsaserverで確かめます。 |
+| 項目         | 内容                                                                                                                                                         |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| URL          | https://saserver.tailbf5177.ts.net:8443 （tailnetの中だけ。443番は別のサービスが使用中）                                                                     |
+| 置き場所     | `/mnt/ssd/opendots/app`（`selfhost`ブランチ）。`~/services/opendots` はそこへのリンク                                                                        |
+| Node.js      | `/mnt/ssd/opendots/node26`（v26。`~/.local/opt/node26` はそこへのリンク。システムのNode 20には触れていない）                                                 |
+| 設定         | `/mnt/ssd/opendots/app/.env`（権限600。`OWNER_TOKEN`、`APP_ORIGIN`、`PUBLIC_APP_URL`を追記済み）                                                             |
+| 常駐         | systemdのユーザーサービス `opendots.service`（`UMask=0077`。`/mnt/ssd`がマウントされるまで15秒ごとに起動をやり直す）                                         |
+| 公開         | `tailscale serve --bg --https=8443 http://127.0.0.1:4310`                                                                                                    |
+| データ       | `/mnt/ssd/opendots/app/data/opendots.sqlite`（権限600。SSD側のsdbとsdc）                                                                                     |
+| バックアップ | `opendots-backup.timer` が毎日4:30にシステムディスク（sda）の `~/backups/opendots` へ保存し、14世代残す。データと別のディスクに置くため、SSDには移していない |
+
+画面を開くと`OWNER_TOKEN`の入力を求められます。値はsaserverで確かめます。
 
 ```sh
 ssh saserver "grep '^OWNER_TOKEN=' ~/services/opendots/.env"
