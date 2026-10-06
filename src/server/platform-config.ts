@@ -69,7 +69,8 @@ export function setupStatus(
     !config.intelligenceKey &&
       !config.selfhost &&
       INTELLIGENCE_KEY_MISSING_LABEL,
-    !config.apiKey && 'OPENAI_API_KEY',
+    !config.apiKey &&
+      (config.selfhost ? 'COMMAND_CODE_API_KEY' : 'OPENAI_API_KEY'),
     !config.model && 'OPENAI_MODEL',
   ].filter((item): item is string => !!item);
   const declaredSlack = !!(
