@@ -85,7 +85,17 @@ Dot Computerを使う場合は、`docs/COMPUTERS.md`に従ってsupervisorをDoc
 
 サイドバーのUsageパネルには、5時間・週・月の3本のバー（上限は$14、$35、$70）、役割別の消化額、月の理想ペース（1日あたり$70÷30）との差、働いているポリシーが出ます。同じ内容が`GET /api/selfhost/usage`で取れます。金額はトークン数に設定ファイルの単価を掛けた推計で、実請求とは少しずれます。補正の方法は「週次の見直し」にあります。
 
-5時間枠は直近5時間の合計です。週と月の起点は`USAGE_WEEK_START`（`mon`か`sun`、既定は`mon`）と`USAGE_MONTH_START_DAY`（1から31、既定は1）で決まり、時刻はAsia/Tokyoで数えます。CommandCode側の実際のリセット時刻が分かったら、この2つを合わせてください。
+枠の数え方はCommandCodeに合わせています。5時間枠と週枠は、枠が空いている状態で最初にリクエストした時刻に始まり、ちょうど5時間後・7日後にリセットされます（決まった時刻や曜日はありません）。月の枠は課金日にリセットされるので、`USAGE_MONTH_START_DAY`に課金日（1から31、Asia/Tokyo）を入れます。CommandCodeの利用状況画面に「Resets on Oct 22」とあれば`22`です。
+
+メーターが数えられるのはOpenDotsからの呼び出しだけです。CLIなど別の道具からもCommandCodeを使っている場合は、パネルの「CommandCodeの表示と合わせる」に利用状況画面の数字（各枠の%と「Resets in 1d 15h」の部分）を入れてください。その枠がリセットされるまで、OpenDots外の消化分として足し込まれ、ポリシーの判定にも使われます。APIでは次のように送れます。
+
+```sh
+curl -X PUT http://127.0.0.1:4310/api/selfhost/usage/observed \
+  -H "Authorization: Bearer $OWNER_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"fiveHour":{"percent":0},"week":{"percent":1,"resetsIn":"1d 15h"},"month":{"percent":13}}'
+```
+
+5時間枠が「No usage in this window yet」のときは、`resetsIn`を付けずに`percent: 0`を送ります。
 
 ポリシーは、ルーターが毎ターン読むフラグです。
 
@@ -194,6 +204,69 @@ cloudflared tunnel run opendots
 ```
 
 Cloudflare Zero Trustの「Access」でこのホスト名のSelf-hostedアプリケーションを作り、自分のメールアドレスだけを許可するポリシーを付けます。これを付けないと、トンネルはインターネットに開いたままです。`APP_ORIGIN`は`https://opendots.example.com`にします。`OWNER_TOKEN`はAccessと併用します。
+
+## saserverで常時動かす
+
+本番はsaserverで動かす予定です。saserverはTailscale（`ssh saserver`）とCloudflare Access（`ssh saserver-cloudflare`）の両方から入れるので、Web画面もTailscale経由で開くのが手軽です。以下はLinuxとsystemdを前提にした手順で、saserverの環境を確かめたら合わせて直します。
+
+1. Node.js 24以上を入れ、Forkを取得します。
+
+   ```sh
+   git clone -b selfhost https://github.com/sasanokusa/OpenDots.git ~/OpenDots
+   cd ~/OpenDots
+   npm ci
+   npm run build
+   ```
+
+2. 手元の`.env`をコピーし、本人だけが読めるようにします。`.env`はGitに入れません。
+
+   ```sh
+   scp .env saserver:~/OpenDots/.env
+   ssh saserver 'chmod 600 ~/OpenDots/.env'
+   ```
+
+   saserver側の`.env`では、`OWNER_TOKEN`（24文字以上）と`APP_ORIGIN`（次の手順で決まるURL）を追記します。`HOST=127.0.0.1`は変えません。
+
+3. Tailscaleでtailnetの中だけにHTTPSで公開します。
+
+   ```sh
+   sudo tailscale serve --bg --https=443 http://127.0.0.1:4310
+   tailscale serve status
+   ```
+
+   表示された`https://saserver.<tailnet名>.ts.net`を`APP_ORIGIN`に入れます。
+
+4. systemdのユーザーサービスにして、ログアウト後も動かします。`~/.config/systemd/user/opendots.service`を作ります。
+
+   ```ini
+   [Unit]
+   Description=OpenDots (self-host fork)
+   After=network-online.target
+
+   [Service]
+   WorkingDirectory=%h/OpenDots
+   ExecStart=/usr/bin/env node --env-file=.env dist/server/server/index.js
+   Restart=on-failure
+   RestartSec=5
+
+   [Install]
+   WantedBy=default.target
+   ```
+
+   ```sh
+   systemctl --user daemon-reload
+   systemctl --user enable --now opendots
+   sudo loginctl enable-linger "$USER"
+   journalctl --user -u opendots -f
+   ```
+
+   `node`がnvmなどで入っていてsystemdから見えない場合は、`ExecStart`を`node`の絶対パスにします。
+
+5. 更新するときは次を実行します。
+
+   ```sh
+   cd ~/OpenDots && git pull && npm ci && npm run build && systemctl --user restart opendots
+   ```
 
 ## バックアップ
 
