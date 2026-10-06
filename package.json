@@ -15,6 +15,7 @@
     "browser:start": "node --env-file-if-exists=.env dist/server/browser/index.js",
     "selfhost:smoke": "node --env-file-if-exists=.env --import tsx scripts/selfhost-smoke.ts",
     "selfhost:fake": "node --import tsx scripts/selfhost-fake-provider.ts",
+    "selfhost:backup": "node --env-file-if-exists=.env --import tsx scripts/selfhost-backup.ts",
     "test": "cross-env DO_NOT_TRACK=1 vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src tests vite.config.ts",
