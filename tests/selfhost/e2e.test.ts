@@ -48,6 +48,10 @@ function fixture(router: 'on' | 'off') {
     { databasePath: ':memory:', workspace },
   ) as SelfhostBackend;
   const platform = new Platform(store, workspace, config, selfhost);
+  selfhost.attach({
+    turn: (...args) => platform.turn(...args),
+    paused: () => store.settings().paused,
+  });
   const research = { mode: 'live' as const, baseUrl: config.baseUrl };
   const app = createApp({
     store,
@@ -413,4 +417,37 @@ it('exposes routing decisions and usage calibration to the owner', async () => {
   expect((await put({ model: roles.chat.model, factor: 0 })).status).toBe(400);
   const saved = await put({ model: roles.chat.model, factor: 1.25 });
   expect(await saved.json()).toEqual({ [roles.chat.model]: 1.25 });
+});
+
+it('runs backlog items on the worker model through the HTTP API', async () => {
+  const { app, platform, dot } = fixture('on');
+  const thread = await platform.createConversation(dot.id, 'Backlog');
+  const post = (path: string, body?: unknown) =>
+    app.request(`/api/selfhost/backlog${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+  const created = await post('', { threadId: thread.id, prompt: 'Tidy notes' });
+  expect(created.status).toBe(201);
+  const item = (await created.json()) as { id: string };
+  expect(
+    (await post('', { threadId: 'nope', prompt: 'Tidy notes' })).status,
+  ).toBe(404);
+  const started = await post(`/${item.id}/run`);
+  expect(started.status).toBe(202);
+  await expect
+    .poll(async () => {
+      const list = (await (
+        await app.request('/api/selfhost/backlog')
+      ).json()) as {
+        items: { id: string; status: string }[];
+      };
+      return list.items.find((entry) => entry.id === item.id)?.status;
+    })
+    .toBe('done');
+  expect(chatModels()).toContain(roles.worker.model);
+  expect(fake.requests.some((r) => r.path === '/systemone')).toBe(false);
+  const log = (platform.config.selfhost!.planTurn as any).log.recent();
+  expect(log[0]).toMatchObject({ final_role: 'worker', reason: 'forced' });
 });

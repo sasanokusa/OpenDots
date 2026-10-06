@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { SelfhostBackend } from './index.js';
 import type { SelfhostEvent } from './threads/events.js';
 import { evaluatePolicy } from './usage/policy.js';
+import { backlogRoutes } from './backlog/routes.js';
 
 const threadPatch = z
   .object({
@@ -25,6 +26,14 @@ export function selfhostRoutes(
   options: { heartbeatMs?: number } = {},
 ) {
   const app = new Hono();
+  if (backend.backlog)
+    app.route(
+      '/backlog',
+      backlogRoutes({
+        ...backend.backlog,
+        requireThread: (threadId) => backend.workspace.requireThread(threadId),
+      }),
+    );
   app.get('/threads', (c) =>
     c.json({
       threads: backend.threads.records({

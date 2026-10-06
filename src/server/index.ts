@@ -65,6 +65,10 @@ const selfhost = enableSelfhost(process.env, config, {
   workspace,
 });
 const platform = new Platform(store, workspace, config, selfhost);
+selfhost?.attach({
+  turn: (...args) => platform.turn(...args),
+  paused: () => store.settings().paused,
+});
 const researchConfig = {
   mode: 'live' as const,
   apiKey: config.apiKey,
@@ -121,6 +125,7 @@ app.get('*', serveStatic({ path: './dist/client/index.html' }));
 const server = serve({ fetch: app.fetch, hostname: host, port }, (info) => {
   console.log(`OpenDots template listening on http://${host}:${info.port}`);
   runner.start();
+  selfhost?.start();
   void platform
     .start()
     .catch((error) =>
@@ -134,7 +139,7 @@ const shutdown = createShutdown({
   stopRunner: () => runner.stop(),
   stopPlatform: async () => {
     await platform.stop();
-    selfhost?.close();
+    await selfhost?.close();
   },
   closeServer: () =>
     new Promise<void>((resolve, reject) =>
