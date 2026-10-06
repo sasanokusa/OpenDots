@@ -16,6 +16,8 @@ export interface TurnPlanInput {
   check: () => void;
   /** Server tools upstream prepared for this Dot (pages, search, computer). */
   baseTools: ToolDefinition[];
+  /** Upstream's system prompt for this Dot and page; reused by sub-loops. */
+  systemPrompt: string;
 }
 
 export interface TurnPlan {

@@ -2,6 +2,9 @@ import type { PlatformConfig } from '../server/platform-config.js';
 import type { WorkspaceStore } from '../server/workspace.js';
 import { roles, turn } from './config/models.js';
 import { createSelfhostBackend, type SelfhostBackend } from './index.js';
+import { CommandCodeClient } from './llm/commandcode.js';
+import { createTurnPlanner } from './router/router.js';
+import { chat } from '@tanstack/ai';
 
 type Env = Record<string, string | undefined>;
 
@@ -50,7 +53,8 @@ export function enableSelfhost(
     config.apiKey = commandCodeKey;
     config.baseUrl = env.COMMAND_CODE_BASE_URL?.trim() || COMMAND_CODE_BASE_URL;
   }
-  if (modelRouterEnabled(env)) config.model = roles.chat.model;
+  const routerEnabled = modelRouterEnabled(env);
+  if (routerEnabled) config.model = roles.chat.model;
   const monthStartDay = positiveInt(env, 'USAGE_MONTH_START_DAY', 1);
   if (monthStartDay > 31)
     throw new Error('USAGE_MONTH_START_DAY must be between 1 and 31.');
@@ -65,5 +69,36 @@ export function enableSelfhost(
   config.selfhost = {
     turnTimeLimitMs: positiveInt(env, 'TURN_TIME_LIMIT_MS', turn.timeLimitMs),
   };
+  if (config.apiKey && config.model) {
+    const client = new CommandCodeClient({
+      apiKey: config.apiKey,
+      baseURL: config.baseUrl,
+      recorder: backend.meter,
+    });
+    const singleModel = config.model;
+    config.selfhost.planTurn = createTurnPlanner({
+      client,
+      meter: backend.meter,
+      db: backend.db,
+      routerEnabled,
+      singleModel,
+    });
+    backend.threads.setNamer((user, assistant) =>
+      chat({
+        adapter: client.chatAdapter({ role: 'chat', model: singleModel }),
+        messages: [
+          {
+            role: 'user',
+            content: `Owner: ${user}\n\nAssistant: ${assistant}`,
+          },
+        ],
+        systemPrompts: [
+          'Write a title for this conversation in its language: at most 20 Japanese characters or 6 English words. Reply with the title only, no quotes.',
+        ],
+        modelOptions: { max_completion_tokens: 200 },
+        stream: false,
+      }),
+    );
+  }
   return backend;
 }

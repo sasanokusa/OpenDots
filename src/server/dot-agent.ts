@@ -323,6 +323,7 @@ export class DotAgent extends AbstractAgent {
               signal: ctx.abortController.signal,
               check,
               baseTools: serverTools,
+              systemPrompt: prompt,
             });
             check();
             return chat({

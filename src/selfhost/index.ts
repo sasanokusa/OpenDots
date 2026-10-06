@@ -12,6 +12,7 @@ import { runTurnInProcess } from './headless.js';
 import { UsageMeter, type UsageMeterOptions } from './usage/meter.js';
 
 export interface SelfhostBackend {
+  readonly db: DatabaseSync;
   readonly runner: SelfhostAgentRunner;
   readonly threads: ThreadService;
   readonly events: SelfhostEvents;
@@ -57,6 +58,7 @@ export function createSelfhostBackend({
     onRecord: () => events.emit({ type: 'usage_updated' }),
   });
   return {
+    db,
     runner,
     threads,
     events,
