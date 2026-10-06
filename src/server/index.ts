@@ -14,6 +14,8 @@ import {
   intelligenceWsUrlFromEnv,
   type PlatformConfig,
 } from './platform-config.js';
+import { enableSelfhost } from '../selfhost/env.js';
+import { selfhostRoutes } from '../selfhost/routes.js';
 const host = process.env.HOST ?? '127.0.0.1';
 const port = Number(process.env.PORT ?? 4310);
 const ownerToken = process.env.OWNER_TOKEN;
@@ -58,7 +60,11 @@ const config: PlatformConfig = {
   runtimeUrl: `http://${host === '::1' ? '[::1]' : '127.0.0.1'}:${port}/api/copilotkit`,
   ownerToken,
 };
-const platform = new Platform(store, workspace, config);
+const selfhost = enableSelfhost(process.env, config, {
+  databasePath: database,
+  workspace,
+});
+const platform = new Platform(store, workspace, config, selfhost);
 const researchConfig = {
   mode: 'live' as const,
   apiKey: config.apiKey,
@@ -78,10 +84,15 @@ const runner = new Runner(
       throw new Error(
         'This legacy task has no Intelligence conversation. Create a new scheduled task from a conversation.',
       );
-    progress('Running this task in its Intelligence conversation.');
+    progress(
+      selfhost
+        ? 'Running this task in its conversation.'
+        : 'Running this task in its Intelligence conversation.',
+    );
     const text = await platform.turn(threadId, claim.prompt, signal);
     return { text, sources: [], sample: false };
   },
+  config.selfhost?.turnTimeLimitMs,
 );
 const wsOrigin = new URL(
   config.intelligenceWsUrl ?? 'wss://realtime.intelligence.copilotkit.ai',
@@ -103,6 +114,7 @@ app.use('*', async (c, next) => {
   );
   await next();
 });
+if (selfhost) app.route('/api/selfhost', selfhostRoutes(selfhost));
 app.get('/api/*', (c) => c.json({ error: 'Not found.' }, 404));
 app.use('/*', serveStatic({ root: './dist/client' }));
 app.get('*', serveStatic({ path: './dist/client/index.html' }));
@@ -120,7 +132,10 @@ const server = serve({ fetch: app.fetch, hostname: host, port }, (info) => {
 });
 const shutdown = createShutdown({
   stopRunner: () => runner.stop(),
-  stopPlatform: () => platform.stop(),
+  stopPlatform: async () => {
+    await platform.stop();
+    selfhost?.close();
+  },
   closeServer: () =>
     new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve())),

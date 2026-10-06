@@ -14,6 +14,7 @@ export class Runner {
       signal: AbortSignal,
       progress: (text: string) => void,
     ) => Promise<Result>,
+    private timeLimitMs = 90_000,
   ) {}
   start() {
     if (!this.timer) {
@@ -68,9 +69,11 @@ export class Runner {
     const timeout = setTimeout(
       () =>
         controller.abort(
-          new Error('Research exceeded the 90 second time limit.'),
+          new Error(
+            `Research exceeded the ${this.timeLimitMs / 1000} second time limit.`,
+          ),
         ),
-      90_000,
+      this.timeLimitMs,
     );
     try {
       const settings = this.store.settings();

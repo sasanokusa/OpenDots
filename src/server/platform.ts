@@ -21,6 +21,7 @@ import {
 import { validateRuntimeScope } from './runtime-scope.js';
 import { learningSelector } from './learning.js';
 import { SetupTelemetry } from './setup-telemetry.js';
+import type { SelfhostBackend } from '../selfhost/index.js';
 export class Platform {
   private channelStartupFailed = false;
   readonly setupTelemetry: SetupTelemetry;
@@ -32,6 +33,7 @@ export class Platform {
     readonly store: Store,
     readonly workspace: WorkspaceStore,
     readonly config: PlatformConfig,
+    readonly selfhost?: SelfhostBackend,
   ) {
     this.setupTelemetry = new SetupTelemetry(store);
     this.computers = new ComputerService(
@@ -41,8 +43,25 @@ export class Platform {
     );
     this.pages = new PageService(workspace, () => {
       this.requireReady();
-      return this.intelligence!;
+      return selfhost?.pageThreads ?? this.intelligence!;
     });
+    if (selfhost) {
+      const runtime = new CopilotRuntime({
+        runner: selfhost.runner,
+        telemetryId: this.setupTelemetry.identity,
+        telemetryProperties: this.setupTelemetry.metadata,
+        agents: async () =>
+          Object.fromEntries(
+            workspace.dots().map((dot) => [dot.id, this.dotAgent(dot.id)]),
+          ),
+      });
+      this.handler = createCopilotHonoHandler({
+        runtime,
+        basePath: '/api/copilotkit',
+        cors: { origin: [] },
+      });
+      return;
+    }
     if (!config.intelligenceKey) return;
     this.intelligence = new CopilotKitIntelligence({
       apiKey: config.intelligenceKey,
@@ -108,6 +127,16 @@ export class Platform {
       cors: { origin: [] },
     });
   }
+  dotAgent(dotId: string, channel = false) {
+    return new DotAgent(
+      this.store,
+      this.workspace,
+      this.config,
+      dotId,
+      channel,
+      this.setupTelemetry,
+    );
+  }
   setup() {
     return setupStatus(
       this.config,
@@ -147,6 +176,7 @@ export class Platform {
   async createConversation(dotId: string, title: string) {
     this.requireReady();
     if (!this.workspace.dot(dotId)) throw new Error('Dot not found.');
+    if (this.selfhost) return this.selfhost.threads.create(dotId, title);
     const id = randomUUID();
     try {
       await this.intelligence!.createThread({
@@ -164,6 +194,7 @@ export class Platform {
   }
   async history(threadId: string): Promise<string> {
     this.requireReady();
+    if (this.selfhost) return this.selfhost.threads.history(threadId);
     this.workspace.requireThread(threadId);
     const history = await this.intelligence!.getThreadMessages({
       threadId,
@@ -214,6 +245,14 @@ export class Platform {
   ): Promise<string> {
     this.requireReady();
     const thread = this.workspace.requireThread(threadId);
+    if (this.selfhost)
+      return this.selfhost.turn(
+        this.dotAgent(thread.dotId),
+        threadId,
+        prompt,
+        signal,
+        metadata,
+      );
     return runThreadTurn(
       this.config.runtimeUrl,
       this.config.ownerToken

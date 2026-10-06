@@ -66,14 +66,16 @@ export class DotAgent extends AbstractAgent {
       const observe = answerObserver((event) =>
         this.setupTelemetry?.capture(event),
       );
+      const timeLimitMs =
+        this.config.selfhost?.turnTimeLimitMs ?? TURN_TIME_LIMIT_MS;
       const timeout = setTimeout(() => {
         timedOut = true;
         observe({ type: EventType.RUN_ERROR });
         this.abortRun();
-      }, TURN_TIME_LIMIT_MS);
+      }, timeLimitMs);
       const timeLimitError = () => ({
         type: EventType.RUN_ERROR,
-        message: `This turn reached the ${TURN_TIME_LIMIT_MS / 1000} second time limit and was stopped. Try a smaller request.`,
+        message: `This turn reached the ${timeLimitMs / 1000} second time limit and was stopped. Try a smaller request.`,
       });
       try {
         const dot = this.workspace.dot(this.dotId);
@@ -94,7 +96,7 @@ export class DotAgent extends AbstractAgent {
           dot.id,
         );
         if (
-          !this.config.intelligenceKey ||
+          (!this.config.intelligenceKey && !this.config.selfhost) ||
           !this.config.apiKey ||
           !this.config.model
         ) {
@@ -293,28 +295,42 @@ export class DotAgent extends AbstractAgent {
         this.inner = new BuiltInAgent({
           type: 'tanstack',
           learnedSkills:
-            dot.skillDeliveryEnabled && conversation.learningContainerId
+            !this.config.selfhost &&
+            dot.skillDeliveryEnabled &&
+            conversation.learningContainerId
               ? {
                   containers: [{ id: conversation.learningContainerId }],
                   apiKey: this.config.intelligenceKey,
                   apiUrl: this.config.intelligenceApiUrl,
                 }
               : undefined,
-          factory: (ctx) => {
+          factory: async (ctx) => {
             check();
+            const trusted = ctx.input.messages.filter(
+              (message) =>
+                message.role !== 'system' && message.role !== 'developer',
+            );
             const converted = convertInputToTanStackAI({
               ...ctx.input,
               // Match BuiltInAgent's default trust boundary for client messages.
-              messages: ctx.input.messages.filter(
-                (message) =>
-                  message.role !== 'system' && message.role !== 'developer',
-              ),
+              messages: trusted,
             });
+            const plan = await this.config.selfhost?.planTurn?.({
+              dotId: dot.id,
+              threadId: ctx.input.threadId,
+              runId: ctx.input.runId,
+              messages: trusted,
+              signal: ctx.abortController.signal,
+              check,
+              baseTools: serverTools,
+            });
+            check();
             return chat({
-              adapter,
+              adapter: plan?.adapter ?? adapter,
               messages: converted.messages,
               systemPrompts: [
                 prompt,
+                ...(plan?.systemPromptSuffix ? [plan.systemPromptSuffix] : []),
                 ...converted.systemPrompts,
                 ...(ctx.learnedSkills.catalog
                   ? [ctx.learnedSkills.catalog]
@@ -323,14 +339,17 @@ export class DotAgent extends AbstractAgent {
               abortController: ctx.abortController,
               threadId: ctx.input.threadId,
               runId: ctx.input.runId,
-              modelOptions: { max_completion_tokens: 2200 },
+              modelOptions: {
+                max_completion_tokens: plan?.maxOutputTokens ?? 2200,
+              },
               agentLoopStrategy: maxIterations(
-                dot.skillDeliveryEnabled && conversation.learningContainerId
-                  ? 10
-                  : 5,
+                plan?.maxIterations ??
+                  (dot.skillDeliveryEnabled && conversation.learningContainerId
+                    ? 10
+                    : 5),
               ),
               tools: [
-                ...tanstackTools(serverTools),
+                ...tanstackTools(plan?.tools ?? serverTools),
                 ...converted.tools,
                 ...learnedSkillTools(ctx, check),
               ],
