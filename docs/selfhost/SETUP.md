@@ -2,7 +2,7 @@
 
 ## このForkで変わること
 
-このForkは、OpenDots本体の会話保存をCopilotKit IntelligenceからSQLite（`DATABASE_PATH`の1ファイル）に置き換え、モデル呼び出しをすべてCommandCodeのProvider APIに向けます。追加したコードは`src/selfhost/`にあり、本体のファイルには差し込み口だけを足しています。`MODEL_ROUTER=on`にすると、Jevが依頼ごとに回し先を決めます。会話はMiMo-V2.6-Flash、計画はMiMo-V2.6-Pro、作業はDeepSeek V4.1 Flash、行き詰まったときの相談はClaude Sonnet 5.5が受け持ちます。ほかに、使用量メーター、夜間のバックログ実行、Discord DMを追加しています。設計の詳細は`OpenDots_Fork_設計書.md`にあります。計画書の`OpenDots_Fork_計画書.md`と同じ場所に置いてあり、リポジトリの外にあるため、ここにはリンクを張りません。
+このForkは、OpenDots本体の会話保存をCopilotKit IntelligenceからSQLite（`DATABASE_PATH`の1ファイル）に置き換え、モデル呼び出しをすべてCommandCodeのProvider APIに向けます。追加したコードは`src/selfhost/`にあり、本体のファイルには差し込み口だけを足しています。`MODEL_ROUTER=on`にすると、Jevが依頼ごとに回し先を決めます。会話はMiMo-V2.6-Flash、計画はMiMo-V2.6-Pro、作業はDeepSeek V4.1 Flash、行き詰まったときの相談はClaude Sonnet 5.5が受け持ちます。ほかに、使用量メーター、夜間のバックログ実行、Discord DMを追加し、画面を日本語にしています。設計の詳細は`OpenDots_Fork_設計書.md`にあります。計画書の`OpenDots_Fork_計画書.md`と同じ場所に置いてあり、リポジトリの外にあるため、ここにはリンクを張りません。
 
 `CONVERSATION_BACKEND`で本家の動作にも戻せます。`selfhost`はSQLite、`intelligence`は本家どおりです。未設定なら、Intelligenceのキーがないときは`selfhost`、あるときは`intelligence`になります。
 
@@ -152,6 +152,8 @@ DISCORD_OWNER_USER_ID=手順5のID
 ```
 
 Botのプロフィールを開いてメッセージを送ると、返信が届きます。コマンドは`/new`（新しい会話にする）、`/web`（`PUBLIC_APP_URL`を返す）、`/help`です。DMのチャンネル1つにWebの会話1つが対応し、Webの一覧には「Discord DM」という名前で出るので、続きをWebでも読めます。テキストのメッセージだけ受け付けます。ページのレビューのように承認が要る操作はDiscordでは行えません。`PUBLIC_APP_URL`を設定していれば、Webで承認するよう、そのURLを添えて返します。起動に失敗すると、サーバーのログに`A self-host service failed to start`と出ます。トークンの貼り間違いを最初に疑ってください。
+
+同じトークンでサーバーを2か所（たとえばsaserverと手元のMac）で動かすと、両方がDMに返信して返事が二重になります。手元の`.env`にトークンを書いたまま開発サーバーを動かすときは、`DISCORD_BOT_TOKEN= DISCORD_OWNER_USER_ID= npm run dev`のように空の値を前に付けて起動してください。コマンドの前に付けた値は、`.env`の値より優先されます。
 
 ## スマホから使う
 
