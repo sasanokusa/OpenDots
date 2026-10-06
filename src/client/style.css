@@ -4212,9 +4212,110 @@ h3 {
   background: var(--selfhost-warn-soft);
   color: #8a5a12;
 }
+.usage-reset {
+  display: block;
+  grid-column: 1 / -1;
+  margin-top: 3px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.usage-external {
+  display: inline-block;
+  white-space: nowrap;
+}
+.usage-sync {
+  margin-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.usage-sync-toggle {
+  width: 100%;
+  justify-content: space-between;
+  padding: 8px 0 6px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 11px;
+  text-align: left;
+  color: #767676;
+}
+.usage-sync-toggle:hover:not(:disabled) {
+  background: none;
+  color: var(--ink);
+}
+.usage-sync-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0 4px;
+}
+.usage-sync-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}
+.usage-sync-row .usage-label {
+  flex: 1;
+  min-width: 0;
+}
+.usage-sync-percent {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.usage-sync-resets {
+  display: flex;
+  flex: 1 0 100%;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.usage-sync-input {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 12px;
+}
+.usage-sync-percent .usage-sync-input {
+  width: 58px;
+  text-align: right;
+}
+.usage-sync-resets .usage-sync-input {
+  flex: 1;
+}
+.usage-sync-submit {
+  align-self: flex-start;
+  padding: 6px 14px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+.usage-sync-error {
+  margin: 0 0 4px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--selfhost-over);
+}
 @media (max-width: 700px) {
   .thread-rename-input {
     font-size: 16px;
+  }
+  .usage-sync-input {
+    font-size: 16px;
+  }
+  .usage-sync-percent .usage-sync-input {
+    width: 64px;
+  }
+  .usage-sync-submit {
+    padding: 8px 16px;
+    font-size: 13px;
   }
   .thread-menu button {
     padding: 8px 14px;
