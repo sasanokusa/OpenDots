@@ -5,6 +5,10 @@ import { createSelfhostBackend, type SelfhostBackend } from './index.js';
 import { CommandCodeClient } from './llm/commandcode.js';
 import { createTurnPlanner } from './router/router.js';
 import { chat } from '@tanstack/ai';
+import {
+  discordConfigFromEnv,
+  type DiscordClientLike,
+} from './discord/bridge.js';
 
 type Env = Record<string, string | undefined>;
 
@@ -19,6 +23,11 @@ export function conversationBackend(
   if (value)
     throw new Error('CONVERSATION_BACKEND must be selfhost or intelligence.');
   return config.intelligenceKey ? 'intelligence' : 'selfhost';
+}
+
+function discordSettings(env: Env, client?: DiscordClientLike) {
+  const settings = discordConfigFromEnv(env);
+  return settings && { ...settings, client };
 }
 
 export function modelRouterEnabled(env: Env): boolean {
@@ -45,7 +54,12 @@ function positiveInt(env: Env, name: string, fallback: number) {
 export function enableSelfhost(
   env: Env,
   config: PlatformConfig,
-  deps: { databasePath: string; workspace: WorkspaceStore },
+  deps: {
+    databasePath: string;
+    workspace: WorkspaceStore;
+    /** Test seam for the Discord gateway client. */
+    discordClient?: DiscordClientLike;
+  },
 ): SelfhostBackend | undefined {
   if (conversationBackend(env, config) !== 'selfhost') return undefined;
   const commandCodeKey = env.COMMAND_CODE_API_KEY?.trim();
@@ -65,6 +79,7 @@ export function enableSelfhost(
     databasePath: deps.databasePath,
     workspace: deps.workspace,
     usage: { monthStartDay, weekStartDay },
+    discord: discordSettings(env, deps.discordClient),
   });
   config.selfhost = {
     turnTimeLimitMs: positiveInt(env, 'TURN_TIME_LIMIT_MS', turn.timeLimitMs),

@@ -451,3 +451,68 @@ it('runs backlog items on the worker model through the HTTP API', async () => {
   const log = (platform.config.selfhost!.planTurn as any).log.recent();
   expect(log[0]).toMatchObject({ final_role: 'worker', reason: 'forced' });
 });
+
+it('answers owner DMs on Discord in a thread the web UI can read', async () => {
+  const { EventEmitter } = await import('node:events');
+  const { ChannelType } = await import('discord.js');
+  const client = Object.assign(new EventEmitter(), {
+    login: () => {
+      queueMicrotask(() => client.emit('clientReady'));
+      return Promise.resolve('ok');
+    },
+    destroy: () => Promise.resolve(),
+  });
+  const store = new Store(':memory:');
+  const workspace = new WorkspaceStore(':memory:', 'owner');
+  const config: PlatformConfig = {
+    baseUrl: 'https://api.openai.com/v1',
+    voiceName: 'marin',
+    slackUsers: [],
+    runtimeUrl: '',
+    webSearchProvider: 'disabled',
+  };
+  const selfhost = enableSelfhost(
+    {
+      CONVERSATION_BACKEND: 'selfhost',
+      MODEL_ROUTER: 'off',
+      OPENAI_MODEL: 'xiaomi/mimo-v2.6-flash',
+      COMMAND_CODE_API_KEY: 'test-key',
+      COMMAND_CODE_BASE_URL: fake.baseURL,
+      DISCORD_BOT_TOKEN: 'discord-test-token',
+      DISCORD_OWNER_USER_ID: '123456789012345678',
+    },
+    Object.assign(config, { model: 'xiaomi/mimo-v2.6-flash' }),
+    { databasePath: ':memory:', workspace, discordClient: client as never },
+  )!;
+  const platform = new Platform(store, workspace, config, selfhost);
+  selfhost.attach({
+    turn: (...args) => platform.turn(...args),
+    paused: () => store.settings().paused,
+  });
+  cleanup.push(async () => {
+    await selfhost.close();
+    store.close();
+    workspace.close();
+  });
+  selfhost.start();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  fake.onChat(() => ({ content: 'Discord reply' }));
+  const sent: string[] = [];
+  const channel = {
+    type: ChannelType.DM,
+    send: async (text: string) => sent.push(text),
+    sendTyping: async () => undefined,
+  };
+  client.emit('messageCreate', {
+    author: { id: '123456789012345678', bot: false },
+    channelId: 'dm-1',
+    channel,
+    content: 'Discordから',
+  });
+  await expect.poll(() => sent).toEqual(['Discord reply']);
+  const thread = workspace.conversations()[0];
+  expect(thread.title).toBe('Discord DM');
+  expect(
+    selfhost.runner.getThreadMessages(thread.id).map((m) => m.content),
+  ).toEqual(['Discordから', 'Discord reply']);
+});

@@ -14,6 +14,16 @@ import { DecisionLog } from './router/decision-log.js';
 import { BacklogStore } from './backlog/store.js';
 import { BacklogRunner } from './backlog/runner.js';
 import { evaluatePolicy } from './usage/policy.js';
+import { DiscordBridge, type DiscordClientLike } from './discord/bridge.js';
+
+export interface DiscordSettings {
+  token: string;
+  ownerUserId: string;
+  dotId?: string;
+  publicUrl?: string;
+  /** Test seam. */
+  client?: DiscordClientLike;
+}
 
 /** What the self-host services need from the running upstream app. */
 export interface SelfhostHost {
@@ -43,6 +53,7 @@ export interface SelfhostBackend {
   readonly decisions: DecisionLog;
   readonly workspace: WorkspaceStore;
   backlog?: { store: BacklogStore; runner: BacklogRunner };
+  discord?: DiscordBridge;
   /** Creates background services; call once the Platform exists. */
   attach(host: SelfhostHost): void;
   /** Starts background services; call once the server listens. */
@@ -62,6 +73,7 @@ export interface SelfhostBackendOptions {
   workspace: WorkspaceStore;
   now?: () => number;
   usage?: Omit<UsageMeterOptions, 'now' | 'onRecord'>;
+  discord?: DiscordSettings;
 }
 
 /** Conversation storage and bookkeeping that replace CopilotKit Intelligence. */
@@ -70,6 +82,7 @@ export function createSelfhostBackend({
   workspace,
   now,
   usage,
+  discord,
 }: SelfhostBackendOptions): SelfhostBackend {
   if (databasePath !== ':memory:')
     mkdirSync(dirname(databasePath), { recursive: true });
@@ -107,6 +120,27 @@ export function createSelfhostBackend({
       });
       backend.backlog = { store, runner: backlogRunner };
       services.push(backlogRunner);
+      if (discord) {
+        const dotId = discord.dotId ?? workspace.dots()[0]?.id;
+        if (!dotId || !workspace.dot(dotId))
+          throw new Error('DISCORD_DOT_ID does not identify an existing Dot.');
+        backend.discord = new DiscordBridge({
+          token: discord.token,
+          ownerUserId: discord.ownerUserId,
+          dotId,
+          db,
+          publicUrl: discord.publicUrl,
+          client: discord.client,
+          now,
+          createThread: (id, title) => threads.create(id, title),
+          threadExists: (threadId) =>
+            workspace.conversations().some((thread) => thread.id === threadId),
+          turn: (threadId, prompt, signal) =>
+            host.turn(threadId, prompt, signal),
+          paused: () => host.paused(),
+        });
+        services.push(backend.discord);
+      }
     },
     start() {
       for (const service of services)
