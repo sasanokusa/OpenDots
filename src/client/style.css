@@ -4001,3 +4001,226 @@ h3 {
   font-size: 14px;
   color: #c9e8dd;
 }
+
+/* selfhost */
+:root {
+  --selfhost-warn: #b7791f;
+  --selfhost-warn-soft: #fbf1dc;
+  --selfhost-over: #c0453a;
+  --selfhost-track: #e9e9ea;
+  --selfhost-fill: #7e89a3;
+}
+.thread-row {
+  margin-bottom: 4px;
+}
+.thread-row-main {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.thread-row-main > .nav-item {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.thread-menu-button {
+  opacity: 0.75;
+}
+.thread-row:hover .thread-menu-button,
+.thread-row.open .thread-menu-button,
+.thread-menu-button:focus-visible {
+  opacity: 1;
+}
+.thread-menu {
+  display: flex;
+  gap: 6px;
+  padding: 4px 12px 6px 38px;
+}
+.thread-menu button {
+  padding: 5px 11px;
+  font-size: 12px;
+  border-radius: 7px;
+}
+.thread-rename-input {
+  flex: 1;
+  min-width: 0;
+  margin: 0 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+}
+.sidebar:has(.usage-panel) {
+  overflow-y: auto;
+}
+.usage-panel {
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--ink);
+}
+.usage-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  text-align: left;
+  font-size: 12px;
+}
+.usage-title {
+  flex: 1;
+  font-weight: 600;
+  color: #767676;
+}
+.usage-glance {
+  order: 3;
+  flex: 0 0 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--muted);
+}
+.usage-toggle[aria-expanded='true'] .usage-glance {
+  display: none;
+}
+.usage-glance.warn,
+.usage-row.warn .usage-pct,
+.usage-roles td.warn {
+  color: var(--selfhost-warn);
+}
+.usage-glance.over,
+.usage-row.over .usage-pct,
+.usage-roles td.over {
+  color: var(--selfhost-over);
+}
+.usage-body {
+  max-height: 45vh;
+  overflow-y: auto;
+  padding: 2px 10px 6px;
+}
+.usage-row {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: baseline;
+  column-gap: 8px;
+  margin-bottom: 9px;
+}
+.usage-label {
+  font-weight: 600;
+}
+.usage-amount {
+  min-width: 0;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
+}
+.usage-pct {
+  min-width: 32px;
+  text-align: right;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.usage-bar {
+  grid-column: 1 / -1;
+  height: 6px;
+  margin-top: 4px;
+  border-radius: 3px;
+  background: var(--selfhost-track);
+  overflow: hidden;
+}
+.usage-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--selfhost-fill);
+}
+.usage-row.warn .usage-bar i {
+  background: var(--selfhost-warn);
+}
+.usage-row.over .usage-bar i {
+  background: var(--selfhost-over);
+}
+.usage-roles {
+  width: 100%;
+  margin: 12px 0 8px;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.usage-roles th,
+.usage-roles td {
+  padding: 3px 0;
+  text-align: right;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.usage-roles thead th {
+  color: var(--muted);
+  font-size: 10px;
+}
+.usage-roles th:first-child {
+  padding-right: 8px;
+  text-align: left;
+  text-transform: capitalize;
+}
+.usage-roles tbody th {
+  color: var(--ink);
+}
+.usage-pace {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 8px 0;
+  font-size: 12px;
+}
+.usage-pace small,
+.usage-note {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.usage-note {
+  margin: 6px 0 0;
+}
+.usage-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 8px 0 2px;
+  padding: 0;
+  list-style: none;
+}
+.usage-chips li {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #eef0f4;
+  color: #5b667d;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.usage-chips li.warn {
+  background: var(--selfhost-warn-soft);
+  color: #8a5a12;
+}
+@media (max-width: 700px) {
+  .thread-rename-input {
+    font-size: 16px;
+  }
+  .thread-menu button {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+  .thread-menu-button {
+    padding: 10px;
+  }
+}

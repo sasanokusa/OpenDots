@@ -31,6 +31,7 @@ import { Mascot } from './Mascot';
 import { useVoice } from './useVoice';
 import { CallView } from './CallView';
 import { shouldSubmitComposerOnKeyDown } from './chat-composer';
+import { useReconnectOnRunFinished } from './selfhost/events';
 
 export function Chat({
   thread,
@@ -43,6 +44,7 @@ export function Chat({
   onSaved,
   onSchedule,
   onComputer,
+  selfhost,
 }: {
   thread: Conversation;
   dot: Dot;
@@ -54,6 +56,8 @@ export function Chat({
   onSaved: () => void;
   onSchedule: () => void;
   onComputer?: () => void;
+  /** Fork: self-hosted backend; picks up runs finished on another device. */
+  selfhost?: boolean;
 }) {
   const { agent, isReady } = useAgent({
     agentId: `chat-${thread.id}`,
@@ -127,6 +131,12 @@ export function Chat({
       active = false;
     };
   }, [agent, copilotkit, isReady]);
+  useReconnectOnRunFinished({
+    enabled: !!selfhost && loaded,
+    threadId: thread.id,
+    running,
+    reconnect: () => void copilotkit.connectAgent({ agent }).catch(() => {}),
+  });
   const send = async (text: string) => {
     if (!text.trim() || running || !loaded || !contextReady || paused) return;
     setError('');

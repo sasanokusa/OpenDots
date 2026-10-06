@@ -287,7 +287,7 @@ export function WorkspaceDialog({
               </label>
             </>
           )}
-          {dialog.type === 'dot' && (
+          {dialog.type === 'dot' && workspace.setup.backend !== 'selfhost' && (
             <fieldset className="space-access-fields">
               <legend>Automatic Learning</legend>
               <label className="field-label" htmlFor="learning-container">

@@ -47,6 +47,7 @@ import { ResultPane } from './ResultPane';
 import { TaskRow } from './TaskPresentation';
 import { TaskActions } from './TaskActions';
 import { WorkspaceDialog, type Dialog } from './WorkspaceDialog';
+import { UsagePanel } from './selfhost/UsagePanel';
 
 function describeFailure(error: unknown, fallback: string) {
   return {
@@ -203,6 +204,15 @@ export function App() {
     (item) => item.id === selectedThread && item.dotId === dot?.id,
   );
   const configured = !!workspace && workspace.setup.missing.length === 0;
+  const selfhost = workspace?.setup.backend === 'selfhost';
+  const [archivedIds, setArchivedIds] = useState<ReadonlySet<string>>(
+    new Set(),
+  );
+  useEffect(() => {
+    // Archived here or on another device: leave it like "no thread selected".
+    if (selfhost && selectedThread && archivedIds.has(selectedThread))
+      setSelectedThread(undefined);
+  }, [selfhost, archivedIds, selectedThread]);
   const setupStep = workspace
     ? dialog?.type === 'settings'
       ? 'settings'
@@ -464,6 +474,8 @@ export function App() {
               setMobile(false);
             }}
             onNew={() => void newConversation()}
+            selfhost={selfhost}
+            onArchivedChange={setArchivedIds}
           />
         ) : (
           <div className="sidebar-empty">
@@ -471,6 +483,7 @@ export function App() {
           </div>
         )}
         <div className="sidebar-bottom">
+          {selfhost && <UsagePanel />}
           <button
             className={`nav-item ${view === 'tasks' ? 'active' : ''}`}
             onClick={() => {
@@ -628,6 +641,7 @@ export function App() {
                   paused={state.settings.paused}
                   onSaved={refresh}
                   onComputer={() => setPane(true)}
+                  selfhost={selfhost}
                   onSchedule={() =>
                     setDialog({ type: 'schedule', threadId: thread.id })
                   }

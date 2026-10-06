@@ -1,6 +1,11 @@
+import { useEffect } from 'react';
 import { useThreads } from '@copilotkit/react-core/v2';
 import { MessageCircle, Plus } from 'lucide-react';
 import type { Conversation, Dot } from '../shared/types';
+import {
+  SelfhostThreadRow,
+  useSelfhostThreads,
+} from './selfhost/ThreadActions';
 export function ThreadList({
   dots,
   dotId,
@@ -8,6 +13,8 @@ export function ThreadList({
   selected,
   onSelect,
   onNew,
+  selfhost,
+  onArchivedChange,
 }: {
   dots: Dot[];
   dotId: string;
@@ -15,6 +22,9 @@ export function ThreadList({
   selected?: string;
   onSelect: (id: string) => void;
   onNew: () => void;
+  /** Fork: self-hosted backend, which adds rename/archive and cross-device names. */
+  selfhost?: boolean;
+  onArchivedChange?: (ids: ReadonlySet<string>) => void;
 }) {
   const threads = useThreads({
     agentId: dotId,
@@ -22,6 +32,13 @@ export function ThreadList({
     includeArchived: false,
     limit: 20,
   });
+  const sh = useSelfhostThreads(!!selfhost);
+  useEffect(() => {
+    if (selfhost) onArchivedChange?.(sh.archived);
+  }, [selfhost, sh.archived, onArchivedChange]);
+  const visible = selfhost
+    ? local.filter((thread) => !sh.archived.has(thread.id))
+    : local;
   return (
     <section className="thread-list">
       <div className="nav-label">
@@ -39,9 +56,12 @@ export function ThreadList({
           Conversation sync unavailable. Check your runtime connection.
         </p>
       )}
-      {local.map((thread) => {
+      {selfhost && sh.error && <p className="sidebar-error">{sh.error}</p>}
+      {visible.map((thread) => {
         const remote = threads.threads.find((item) => item.id === thread.id);
-        return (
+        const title =
+          (selfhost && sh.names.get(thread.id)) || remote?.name || thread.title;
+        const item = (
           <button
             key={thread.id}
             className={`nav-item ${selected === thread.id ? 'active' : ''}`}
@@ -49,13 +69,25 @@ export function ThreadList({
           >
             <MessageCircle size={15} />
             <span className="thread-summary">
-              <span>{remote?.name || thread.title}</span>
+              <span>{title}</span>
               <small>{dots.find((dot) => dot.id === thread.dotId)?.name}</small>
             </span>
           </button>
         );
+        return selfhost ? (
+          <SelfhostThreadRow
+            key={thread.id}
+            label={title}
+            onRename={(name) => sh.rename(thread.id, name)}
+            onArchive={() => sh.archive(thread.id)}
+          >
+            {item}
+          </SelfhostThreadRow>
+        ) : (
+          item
+        );
       })}
-      {!local.length && (
+      {!visible.length && (
         <p className="sidebar-empty">Your first conversation will live here.</p>
       )}
       {threads.hasMoreThreads && (
