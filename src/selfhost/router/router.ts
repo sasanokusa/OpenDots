@@ -1,4 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
+import type { Message } from '@ag-ui/client';
 import type { ToolDefinition } from '@copilotkit/runtime/v2';
 import { handover, roles, turn, type TurnRole } from '../config/models.js';
 import type { CommandCodeClient } from '../llm/commandcode.js';
@@ -37,6 +38,20 @@ export const ESCALATE_SUFFIX =
   'The owner asked for escalation with /escalate. First call ask_advisor with a ticket built from this conversation, then act on the advice.';
 
 export const WORKER_SUFFIX = `Routing: you are handling this request directly as a worker. Do the task with the tools provided and report the result concisely. ${LANGUAGE}`;
+
+/**
+ * Server-initiated turns (backlog runs) pin a role through the user message's
+ * metadata. An authenticated client could set it too, which is harmless: a
+ * forced role gets no tools beyond what the Dot already allows.
+ */
+export function forcedRole(messages: Message[]): TurnRole | undefined {
+  const last = [...messages].reverse().find((message) => message.role === 'user');
+  const role = (last as { metadata?: { selfhostRole?: unknown } } | undefined)
+    ?.metadata?.selfhostRole;
+  return role === 'worker' || role === 'chat' || role === 'planner'
+    ? role
+    : undefined;
+}
 
 export interface TurnPlannerDeps {
   client: CommandCodeClient;
@@ -166,18 +181,21 @@ export function createTurnPlanner(deps: TurnPlannerDeps): TurnPlanner {
       };
     const text = lastUserText(input.messages);
     const flags = policy();
-    const decision: RouteDecision = decideRoute({
-      text,
-      jev: /^\s*\/(plan|escalate)\b/i.test(text)
-        ? undefined
-        : await askJev(deps.client, routeState(input.messages), {
-            signal: input.signal,
-            threadId: input.threadId,
-            runId: input.runId,
-          }),
-      policy: flags,
-      now: now(),
-    });
+    const forced = forcedRole(input.messages);
+    const decision: RouteDecision = forced
+      ? { role: forced, reason: 'forced', highImpact: false }
+      : decideRoute({
+          text,
+          jev: /^\s*\/(plan|escalate)\b/i.test(text)
+            ? undefined
+            : await askJev(deps.client, routeState(input.messages), {
+                signal: input.signal,
+                threadId: input.threadId,
+                runId: input.runId,
+              }),
+          policy: flags,
+          now: now(),
+        });
     try {
       log.record({
         threadId: input.threadId,
