@@ -282,7 +282,9 @@ async function readBody(req: IncomingMessage): Promise<any> {
   }
 }
 
-export async function startFakeCommandCode(): Promise<FakeCommandCode> {
+export async function startFakeCommandCode(
+  options: { port?: number } = {},
+): Promise<FakeCommandCode> {
   const requests: FakeRequest[] = [];
   let chatHandler = defaultChat;
   let systemOneHandler = defaultSystemOne;
@@ -352,7 +354,7 @@ export async function startFakeCommandCode(): Promise<FakeCommandCode> {
 
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);
-    server.listen(0, '127.0.0.1', resolve);
+    server.listen(options.port ?? 0, '127.0.0.1', resolve);
   });
   const { port } = server.address() as AddressInfo;
 
