@@ -209,18 +209,17 @@ Cloudflare Zero Trustの「Access」でこのホスト名のSelf-hostedアプリ
 
 本番はsaserver（Ubuntu 24.04）で動いています。2026-10-07に次の形で配置しました。
 
-| 項目         | 内容                                                                                           |
-| ------------ | ---------------------------------------------------------------------------------------------- |
-| URL          | https://saserver.tailbf5177.ts.net:8443 （tailnetの中だけ。443番は別のサービスが使用中）       |
-| 置き場所     | `~/services/opendots`（`selfhost`ブランチ）                                                    |
-| Node.js      | `~/.local/opt/node26`（v26。システムのNode 20には触れていない）                                |
-| 設定         | `~/services/opendots/.env`（権限600。`OWNER_TOKEN`、`APP_ORIGIN`、`PUBLIC_APP_URL`を追記済み） |
-| 常駐         | systemdのユーザーサービス `opendots.service`（`UMask=0077`）                                   |
-| 公開         | `tailscale serve --bg --https=8443 http://127.0.0.1:4310`                                      |
-| データ       | `~/services/opendots/data/opendots.sqlite`（権限600）                                          |
-| バックアップ | `opendots-backup.timer` が毎日4:30に `~/backups/opendots` へ保存し、14世代残す                 |
-
-画面を開くと`OWNER_TOKEN`の入力を求められます。値はsaserverで確かめます。
+| 項目                                                                      | 内容                                                                                                                                                         |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| URL                                                                       | https://saserver.tailbf5177.ts.net:8443 （tailnetの中だけ。443番は別のサービスが使用中）                                                                     |
+| 置き場所                                                                  | `/mnt/ssd/opendots/app`（`selfhost`ブランチ）。`~/services/opendots` はそこへのリンク                                                                        |
+| Node.js                                                                   | `/mnt/ssd/opendots/node26`（v26。`~/.local/opt/node26` はそこへのリンク。システムのNode 20には触れていない）                                                 |
+| 設定                                                                      | `/mnt/ssd/opendots/app/.env`（権限600。`OWNER_TOKEN`、`APP_ORIGIN`、`PUBLIC_APP_URL`を追記済み）                                                             |
+| 常駐                                                                      | systemdのユーザーサービス `opendots.service`（`UMask=0077`。`/mnt/ssd`がマウントされるまで15秒ごとに起動をやり直す）                                         |
+| 公開                                                                      | `tailscale serve --bg --https=8443 http://127.0.0.1:4310`                                                                                                    |
+| データ                                                                    | `/mnt/ssd/opendots/app/data/opendots.sqlite`（権限600。SSD側のsdbとsdc）                                                                                     |
+| バックアップ                                                              | `opendots-backup.timer` が毎日4:30にシステムディスク（sda）の `~/backups/opendots` へ保存し、14世代残す。データと別のディスクに置くため、SSDには移していない |
+| 画面を開くと`OWNER_TOKEN`の入力を求められます。値はsaserverで確かめます。 |
 
 ```sh
 ssh saserver "grep '^OWNER_TOKEN=' ~/services/opendots/.env"
@@ -239,8 +238,8 @@ ssh saserver 'systemctl --user restart opendots'
 
 一から作り直すときの手順は次のとおりです。
 
-1. Node.js 26を`~/.local/opt`に展開し、`~/.local/opt/node26`へリンクを張ります（`nodejs.org/dist`の`SHASUMS256.txt`で検証）。
-2. `git clone -b selfhost https://github.com/sasanokusa/OpenDots.git ~/services/opendots`、続けて`npm ci`と`npm run build`を実行します。
+1. `/mnt/ssd/opendots`を権限700で作り、Node.js 26をそこに展開して`node26`へリンクを張ります（`nodejs.org/dist`の`SHASUMS256.txt`で検証）。`~/.local/opt/node26`からもリンクを張ります。
+2. `git clone -b selfhost https://github.com/sasanokusa/OpenDots.git /mnt/ssd/opendots/app`、続けて`npm ci`と`npm run build`を実行し、`~/services/opendots`からリンクを張ります。
 3. 手元の`.env`を権限600で置き、`OWNER_TOKEN`（24文字以上のランダムな文字列）、`APP_ORIGIN`と`PUBLIC_APP_URL`（上のURL）を追記します。`HOST=127.0.0.1`は変えません。
 4. `~/.config/systemd/user/opendots.service`を作り、`systemctl --user enable --now opendots`を実行します。saserverはlingerが有効なので、ログアウト後も動き続けます。
 
@@ -248,13 +247,15 @@ ssh saserver 'systemctl --user restart opendots'
    [Unit]
    Description=OpenDots self-host fork (CommandCode, tailnet only)
    After=network-online.target
+   StartLimitIntervalSec=0
 
    [Service]
-   WorkingDirectory=%h/services/opendots
-   ExecStart=%h/.local/opt/node26/bin/node --env-file=.env dist/server/server/index.js
+   WorkingDirectory=/mnt/ssd/opendots/app
+   ExecStartPre=/usr/bin/mountpoint -q /mnt/ssd
+   ExecStart=/mnt/ssd/opendots/node26/bin/node --env-file=.env dist/server/server/index.js
    Restart=on-failure
+   RestartSec=15
    UMask=0077
-   RestartSec=5
 
    [Install]
    WantedBy=default.target
