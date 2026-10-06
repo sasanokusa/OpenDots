@@ -6,20 +6,37 @@ import {
 } from 'lucide-react';
 import type { Task } from '../shared/types';
 import { Mascot } from './Mascot';
+import { intlLocale, t } from './selfhost/i18n';
 export const relative = (value: number) => {
   const minutes = Math.floor((Date.now() - value) / 60000);
   return minutes < 1
-    ? 'Just now'
+    ? t('Just now')
     : minutes < 60
-      ? `${minutes}m ago`
+      ? t('{minutes}m ago', { minutes })
       : minutes < 1440
-        ? `${Math.floor(minutes / 60)}h ago`
-        : new Date(value).toLocaleDateString();
+        ? t('{hours}h ago', { hours: Math.floor(minutes / 60) })
+        : new Date(value).toLocaleDateString(intlLocale());
 };
-export const statusLabel = (task: Task) =>
-  task.status === 'completed' && task.nextRunAt
-    ? 'Scheduled'
-    : task.status.charAt(0).toUpperCase() + task.status.slice(1);
+export const statusLabel = (task: Task) => {
+  if (task.status === 'completed' && task.nextRunAt) return t('Scheduled');
+  const labels: Record<Task['status'], string> = {
+    queued: t('Queued'),
+    running: t('Running'),
+    paused: t('Paused'),
+    completed: t('Completed'),
+    failed: t('Failed'),
+    interrupted: t('Interrupted'),
+    cancelled: t('Cancelled'),
+  };
+  return (
+    labels[task.status] ??
+    task.status.charAt(0).toUpperCase() + task.status.slice(1)
+  );
+};
+const repeatLabel = (seconds: number) =>
+  seconds < 3600
+    ? t('Repeats every {n} min', { n: seconds / 60 })
+    : t('Repeats every {n} hr', { n: seconds / 3600 });
 export function Status({ task }: { task: Task }) {
   return (
     <span className={`status ${task.status}`}>
@@ -51,7 +68,7 @@ export function TaskRow({
         <strong>{task.prompt}</strong>
         <span>
           {task.intervalSeconds
-            ? `Repeats every ${task.intervalSeconds < 3600 ? task.intervalSeconds / 60 + ' min' : task.intervalSeconds / 3600 + ' hr'} · `
+            ? `${repeatLabel(task.intervalSeconds)} · `
             : ''}
           {relative(task.updatedAt)}
         </span>

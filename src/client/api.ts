@@ -4,6 +4,7 @@ export function setToken(value: string) {
   if (value) sessionStorage.setItem('opendots-token', value);
   else sessionStorage.removeItem('opendots-token');
 }
+// `message` is the server's English text; show it through `tMessage()`.
 export class ApiError extends Error {
   constructor(
     message: string,

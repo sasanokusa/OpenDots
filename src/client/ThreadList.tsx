@@ -6,6 +6,12 @@ import {
   SelfhostThreadRow,
   useSelfhostThreads,
 } from './selfhost/ThreadActions';
+import { t, tMessage } from './selfhost/i18n';
+
+/** The server's default title is English; show it in the UI language. */
+const DEFAULT_TITLE = 'A new thought';
+const displayTitle = (title: string) =>
+  title === DEFAULT_TITLE ? t(DEFAULT_TITLE) : title;
 export function ThreadList({
   dots,
   dotId,
@@ -42,25 +48,29 @@ export function ThreadList({
   return (
     <section className="thread-list">
       <div className="nav-label">
-        RECENT CHATS
+        {t('RECENT CHATS')}
         <button
           className="icon-button"
           onClick={onNew}
-          aria-label="New conversation"
+          aria-label={t('New conversation')}
         >
           <Plus size={14} />
         </button>
       </div>
       {threads.error && (
         <p className="sidebar-error">
-          Conversation sync unavailable. Check your runtime connection.
+          {t('Conversation sync unavailable. Check your runtime connection.')}
         </p>
       )}
-      {selfhost && sh.error && <p className="sidebar-error">{sh.error}</p>}
+      {selfhost && sh.error && (
+        <p className="sidebar-error">{tMessage(sh.error)}</p>
+      )}
       {visible.map((thread) => {
         const remote = threads.threads.find((item) => item.id === thread.id);
         const title =
-          (selfhost && sh.names.get(thread.id)) || remote?.name || thread.title;
+          (selfhost && sh.names.get(thread.id)) ||
+          remote?.name ||
+          displayTitle(thread.title);
         const item = (
           <button
             key={thread.id}
@@ -88,7 +98,9 @@ export function ThreadList({
         );
       })}
       {!visible.length && (
-        <p className="sidebar-empty">Your first conversation will live here.</p>
+        <p className="sidebar-empty">
+          {t('Your first conversation will live here.')}
+        </p>
       )}
       {threads.hasMoreThreads && (
         <button
@@ -96,7 +108,7 @@ export function ThreadList({
           disabled={threads.isFetchingMoreThreads}
           onClick={() => void threads.fetchMoreThreads()}
         >
-          Load more conversations
+          {t('Load more conversations')}
         </button>
       )}
     </section>

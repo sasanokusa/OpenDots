@@ -4056,6 +4056,11 @@ h3 {
 .sidebar:has(.usage-panel) {
   overflow-y: auto;
 }
+/* The open usage panel must not squeeze the Space and thread lists to zero;
+   the sidebar scrolls instead. */
+.sidebar:has(.usage-panel) :is(.spaces-nav, .thread-list) {
+  flex-shrink: 0;
+}
 .usage-panel {
   margin-bottom: 8px;
   font-size: 12px;
@@ -4324,4 +4329,232 @@ h3 {
   .thread-menu-button {
     padding: 10px;
   }
+}
+
+/* selfhost: Japanese typography */
+/* The `html:lang(ja)` prefix outranks upstream's `.template-app …` rules and
+   the later-loaded editor.css, so no upstream rule needs editing. */
+:root {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, 'Hiragino Sans',
+    'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic UI', Meiryo,
+    sans-serif;
+}
+html:lang(ja) body {
+  line-break: strict;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+@supports (word-break: auto-phrase) {
+  /* Break at phrase boundaries instead of in the middle of a word. */
+  html:lang(ja) body {
+    word-break: auto-phrase;
+  }
+}
+/* Upstream tracks Latin type tightly or widely; both hurt Japanese glyphs. */
+html:lang(ja)
+  :is(
+    h1,
+    h2,
+    h3,
+    h4,
+    p,
+    span,
+    small,
+    strong,
+    label,
+    legend,
+    a,
+    button,
+    input,
+    textarea,
+    select,
+    summary,
+    li,
+    th,
+    td,
+    div
+  ):not(.wordmark, .rail-brand) {
+  letter-spacing: 0;
+}
+html:lang(ja) :is(h1, h2, h3, h4) {
+  line-height: 1.35;
+  font-feature-settings: 'palt';
+}
+/* Running text breathes more with Japanese. */
+html:lang(ja) :is(p, li, .muted, .usage-note, .permission-row small, textarea) {
+  line-height: 1.7;
+}
+html:lang(ja) :is(.brief, .dot-message, .message-body) p {
+  line-height: 1.8;
+}
+html:lang(ja) :is(p, small, .muted, li) {
+  text-wrap: pretty;
+}
+/* Uppercase and wide tracking are Latin conventions: drop them and give the
+   small caption styles a readable size. */
+html:lang(ja)
+  :is(
+    .eyebrow,
+    .library-eyebrow,
+    .template-label,
+    .mode-badge,
+    .version,
+    .nav-label,
+    .spaces-heading,
+    .slash-menu-label
+  ) {
+  text-transform: none;
+  letter-spacing: 0;
+}
+html:lang(ja)
+  :is(
+    .eyebrow,
+    .library-eyebrow,
+    .nav-label,
+    .spaces-heading,
+    .slash-menu-label
+  ),
+html:lang(ja) .template-app .nav-label,
+html:lang(ja) .template-app .spaces-heading,
+html:lang(ja) .template-app .thread-list .nav-label {
+  font-size: 11px;
+}
+html:lang(ja) :is(.mode-badge, .version, .template-label) {
+  font-size: 10px;
+}
+html:lang(ja) :is(.mode-badge, .version) {
+  white-space: nowrap;
+}
+/* Secondary text: upstream's 9-10px (and 11px captions) are too small to read
+   in Japanese. */
+html:lang(ja)
+  :is(
+    .breadcrumbs,
+    .template-app .breadcrumbs,
+    .empty-chat-persona p,
+    .empty-chat-persona .text-button,
+    .page-heading p,
+    .pane-empty p,
+    .config-note p,
+    .config-note a,
+    .config-note strong,
+    .setup-card p,
+    .setup-card a,
+    .setup-card strong,
+    .setup-card code,
+    .permission-row small,
+    .permission-row strong,
+    .sidebar-empty,
+    .sidebar-error,
+    .notice,
+    .error-banner,
+    .sample-note,
+    .schedule-note,
+    .settings-row p,
+    .modal p.muted,
+    .field-label,
+    .pane-tabs button,
+    .task-controls button,
+    .starter-suggestions button,
+    .chat-compose-note,
+    .chat-error,
+    .call-footer,
+    .computer-audit span,
+    .page-review-card header span,
+    .inline-computer .tool-state,
+    .inline-computer-caption,
+    .computer-panel small,
+    .computer-hint,
+    .computer-status span,
+    .computer-view > p,
+    .page-chat-launch small,
+    .page-review-card footer small,
+    .history-result,
+    .empty-activity strong,
+    .empty-activity p
+  ) {
+  font-size: 12px;
+}
+html:lang(ja)
+  :is(
+    .composer-bottom > span,
+    .connection-note,
+    .connection-note .text-button,
+    .memory-card small,
+    .task-row > div > span,
+    .task-row .status,
+    .status,
+    .task-detail-card small,
+    .thread-summary small,
+    .nav-item small,
+    .count,
+    .source-card small,
+    .source-card p,
+    .source-card strong,
+    .run-history h3 span,
+    .sources h3 span,
+    .run-history summary time,
+    .section-heading > span,
+    .text-button,
+    .chat-error button,
+    .voice-strip,
+    .voice-strip button,
+    .call-receipt,
+    .call-receipt small,
+    .timeline-row,
+    .timeline-row small,
+    .profile-label span,
+    .suggestion p,
+    .mascot-caption,
+    .ready-pill,
+    .thinking,
+    .usage-reset,
+    .usage-chips li,
+    .usage-roles thead th,
+    .document-chat-dock-bottom > span,
+    .document-save-status,
+    .library-page-meta,
+    .slash-menu button span,
+    .slash-menu p,
+    .editor-hint,
+    .library-section-label span
+  ) {
+  font-size: 11px;
+}
+/* Sidebar and list rows. */
+html:lang(ja) .template-app .thread-list .nav-item,
+html:lang(ja) .template-app .thread-summary > span {
+  font-size: 12px;
+}
+html:lang(ja) .template-app .usage-title {
+  font-size: 12px;
+}
+/* The caption under the composer and the page dock must wrap, not clip. */
+html:lang(ja) .document-chat-dock-bottom > span {
+  min-width: 0;
+  line-height: 1.5;
+  white-space: normal;
+}
+html:lang(ja) .document-save-status {
+  flex-shrink: 0;
+}
+/* Rename / Archive menu in the sidebar: keep each label on one line. */
+html:lang(ja) .thread-menu {
+  padding-left: 30px;
+}
+html:lang(ja) .thread-menu button {
+  white-space: nowrap;
+  padding: 5px 9px;
+}
+html:lang(ja) .thread-menu button,
+html:lang(ja) .template-app .pause-button,
+html:lang(ja) .template-app .pause-button > span {
+  font-size: 12px;
+}
+/* The agent name under a conversation title is a caption, not a count badge. */
+html:lang(ja) .template-app .thread-summary small {
+  background: none;
+  padding: 0;
+  border-radius: 0;
 }

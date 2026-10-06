@@ -14,6 +14,7 @@ import {
   type SelfhostThread,
 } from './api';
 import { useSelfhostEvents } from './events';
+import { t } from './i18n';
 
 const NO_NAMES: ReadonlyMap<string, string> = new Map();
 const NO_ARCHIVED: ReadonlySet<string> = new Set();
@@ -85,7 +86,9 @@ export function useSelfhostThreads(enabled: boolean) {
         return true;
       } catch (e) {
         setError(
-          e instanceof Error ? e.message : 'Could not update the conversation.',
+          e instanceof Error
+            ? e.message
+            : t('Could not update the conversation.'),
         );
         return false;
       }
@@ -157,7 +160,7 @@ export function SelfhostThreadRow({
           <input
             ref={field}
             className="thread-rename-input"
-            aria-label="Rename conversation"
+            aria-label={t('Rename conversation')}
             defaultValue={label}
             maxLength={80}
             onBlur={() => setRenaming(false)}
@@ -180,7 +183,7 @@ export function SelfhostThreadRow({
             ref={toggle}
             type="button"
             className="icon-button thread-menu-button"
-            aria-label={`Options for ${label}`}
+            aria-label={t('Options for {label}', { label })}
             aria-haspopup="menu"
             aria-expanded={menu}
             onClick={() => setMenu(!menu)}
@@ -190,7 +193,7 @@ export function SelfhostThreadRow({
         )}
       </div>
       {menu && !renaming && (
-        <div className="thread-menu" role="menu" aria-label="Conversation">
+        <div className="thread-menu" role="menu" aria-label={t('Conversation')}>
           <button
             type="button"
             role="menuitem"
@@ -199,7 +202,7 @@ export function SelfhostThreadRow({
               setRenaming(true);
             }}
           >
-            Rename
+            {t('Rename')}
           </button>
           <button
             type="button"
@@ -209,7 +212,7 @@ export function SelfhostThreadRow({
               void onArchive();
             }}
           >
-            Archive
+            {t('Archive')}
           </button>
         </div>
       )}

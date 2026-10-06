@@ -13,6 +13,7 @@ import {
   type UsageSummary,
 } from './api';
 import { useSelfhostEvents } from './events';
+import { intlLocale, t, tMessage } from './i18n';
 
 const STORAGE_KEY = 'opendots-selfhost-usage-collapsed';
 const WARN_RATIO = 0.8;
@@ -159,80 +160,87 @@ export function policyChips(flags: PolicyFlags): PolicyChip[] {
   add(
     flags.pauseEscalation,
     'pauseEscalation',
-    'Escalation paused',
-    'The 5-hour window is nearly used up, so escalation waits.',
+    t('Escalation paused'),
+    t('The 5-hour window is nearly used up, so escalation waits.'),
   );
   add(
     flags.plannerUrgentOnly,
     'plannerUrgentOnly',
-    'Planner: urgent only',
-    'The planner only takes urgent work until the 5-hour window recovers.',
+    t('Planner: urgent only'),
+    t('The planner only takes urgent work until the 5-hour window recovers.'),
   );
   add(
     flags.stopBacklog,
     'stopBacklog',
-    'Backlog stopped',
-    'The weekly limit is nearly used up, so background work is stopped.',
+    t('Backlog stopped'),
+    t('The weekly limit is nearly used up, so background work is stopped.'),
   );
   add(
     flags.plannerOverWeekly,
     'plannerOverWeekly',
-    'Planner over weekly target',
-    'The planner has passed its weekly target and needs higher confidence.',
+    t('Planner over weekly target'),
+    t('The planner has passed its weekly target and needs higher confidence.'),
   );
   add(
     flags.plannerReserved,
     'plannerReserved',
-    'Planner reserved',
-    'Planner spend has reached its monthly reserve.',
+    t('Planner reserved'),
+    t('Planner spend has reached its monthly reserve.'),
   );
   add(
     flags.advisorManualOnly,
     'advisorManualOnly',
-    'Advisor: manual only',
-    'Escalation spend reached the automatic limit; only manual escalation runs.',
+    t('Advisor: manual only'),
+    t(
+      'Escalation spend reached the automatic limit; only manual escalation runs.',
+    ),
   );
   add(
     flags.chatExhausted,
     'chatExhausted',
-    'Chat cap reached',
-    'Chat has used its monthly cap.',
+    t('Chat cap reached'),
+    t('Chat has used its monthly cap.'),
   );
   for (const [role, until] of Object.entries(flags.coolingDown ?? {})) {
     add(
       true,
       `cooling-${role}`,
-      `${role} cooling down`,
-      `Rate limited until ${new Date(until).toLocaleTimeString()}.`,
+      t('{role} cooling down', { role }),
+      t('Rate limited until {time}.', {
+        time: new Date(until).toLocaleTimeString(intlLocale()),
+      }),
     );
   }
   add(
     flags.behindPace,
     'behindPace',
-    'Behind pace',
-    'Spend is below the ideal pace for this point in the month.',
+    t('Behind pace'),
+    t('Spend is below the ideal pace for this point in the month.'),
     'info',
   );
   add(
     flags.backlogWindowOpen,
     'backlogWindowOpen',
-    'Backlog window open',
-    'Background work may use the spare budget right now.',
+    t('Backlog window open'),
+    t('Background work may use the spare budget right now.'),
     'info',
   );
   return chips;
 }
 
-const WINDOWS = [
-  ['fiveHour', '5h', '5-hour'],
-  ['week', 'Week', 'Weekly'],
-  ['month', 'Month', 'Monthly'],
-] as const;
+const WINDOWS = ['fiveHour', 'week', 'month'] as const;
+/** Short label and full name of a window, in the UI language. */
+const windowLabels = (key: (typeof WINDOWS)[number]) =>
+  ({
+    fiveHour: [t('5h'), t('5-hour')],
+    week: [t('Week'), t('Weekly')],
+    month: [t('Month'), t('Monthly')],
+  })[key];
 const ROLES = ['chat', 'planner', 'worker', 'escalation'] as const;
 
 /** When the window resets, and how much of its spend came from outside OpenDots. */
 export function windowNote(
-  key: (typeof WINDOWS)[number][0],
+  key: (typeof WINDOWS)[number],
   usage: UsageSummary['windows']['fiveHour'],
   now: number,
 ): { reset?: string; external?: string } {
@@ -270,7 +278,7 @@ function Bar({
       <div
         className="usage-bar"
         role="progressbar"
-        aria-label={`${name} usage`}
+        aria-label={t('{name} usage', { name })}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.min(100, pct)}
@@ -295,11 +303,17 @@ function paceText(pace: UsageSummary['pace']) {
   const diff = pace.diffUSD;
   const headline =
     Math.abs(diff) < 0.005
-      ? 'On ideal pace'
-      : `${usd(diff)} ${diff > 0 ? 'ahead of' : 'behind'} ideal pace`;
+      ? t('On ideal pace')
+      : diff > 0
+        ? t('{amount} ahead of ideal pace', { amount: usd(diff) })
+        : t('{amount} behind ideal pace', { amount: usd(diff) });
   return {
     headline,
-    detail: `Day ${pace.dayOfMonth}: ${usd(pace.monthUSD)} spent, ${usd(pace.idealToDateUSD)} ideal`,
+    detail: t('Day {day}: {spent} spent, {ideal} ideal', {
+      day: pace.dayOfMonth,
+      spent: usd(pace.monthUSD),
+      ideal: usd(pace.idealToDateUSD),
+    }),
   };
 }
 
@@ -414,7 +428,7 @@ export function SyncForm({ onSaved }: { onSaved?: () => void }) {
       if (mounted.current)
         setError(
           cause instanceof Error && cause.message
-            ? cause.message
+            ? tMessage(cause.message)
             : '送信できませんでした。',
         );
     } finally {
@@ -537,21 +551,21 @@ export function UsagePanelView({
 }) {
   const summary = data?.summary;
   const ratios = summary
-    ? WINDOWS.map(([key]) => usageRatio(summary.windows[key]))
+    ? WINDOWS.map((key) => usageRatio(summary.windows[key]))
     : [];
   const worst = Math.max(0, ...ratios);
   const glance = summary
     ? WINDOWS.map(
-        ([, label], index) => `${label} ${percent(ratios[index])}%`,
+        (key, index) => `${windowLabels(key)[0]} ${percent(ratios[index])}%`,
       ).join(' · ')
     : failed
-      ? 'unavailable'
-      : 'loading…';
+      ? t('unavailable')
+      : t('loading…');
   const Chevron = collapsed ? ChevronDown : ChevronUp;
   const chips = data ? policyChips(data.policy) : [];
   const pace = summary ? paceText(summary.pace) : undefined;
   return (
-    <section className="usage-panel" aria-label="Model usage">
+    <section className="usage-panel" aria-label={t('Model usage')}>
       <button
         type="button"
         className="usage-toggle"
@@ -559,7 +573,7 @@ export function UsagePanelView({
         aria-controls="usage-panel-body"
         onClick={onToggle}
       >
-        <span className="usage-title">Usage</span>
+        <span className="usage-title">{t('Usage')}</span>
         <span className={`usage-glance ${toneFor(worst)}`}>{glance}</span>
         <Chevron size={14} />
       </button>
@@ -567,16 +581,18 @@ export function UsagePanelView({
         <div className="usage-body" id="usage-panel-body">
           {!summary && (
             <p className="usage-note">
-              {failed ? 'Usage is unavailable right now.' : 'Loading usage…'}
+              {failed
+                ? t('Usage is unavailable right now.')
+                : t('Loading usage…')}
             </p>
           )}
           {summary && (
             <>
-              {WINDOWS.map(([key, label, name]) => (
+              {WINDOWS.map((key) => (
                 <Bar
                   key={key}
-                  label={label}
-                  name={name}
+                  label={windowLabels(key)[0]}
+                  name={windowLabels(key)[1]}
                   usage={summary.windows[key]}
                   note={windowNote(key, summary.windows[key], now)}
                 />
@@ -584,9 +600,9 @@ export function UsagePanelView({
               <table className="usage-roles">
                 <thead>
                   <tr>
-                    <th scope="col">Role</th>
-                    <th scope="col">Week</th>
-                    <th scope="col">Month</th>
+                    <th scope="col">{t('Role')}</th>
+                    <th scope="col">{t('Week')}</th>
+                    <th scope="col">{t('Month')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -615,7 +631,7 @@ export function UsagePanelView({
                 </p>
               )}
               {chips.length > 0 && (
-                <ul className="usage-chips" aria-label="Active policies">
+                <ul className="usage-chips" aria-label={t('Active policies')}>
                   {chips.map((chip) => (
                     <li key={chip.key} className={chip.tone} title={chip.title}>
                       {chip.label}
@@ -625,7 +641,9 @@ export function UsagePanelView({
               )}
               <SyncForm onSaved={onSynced} />
               {failed && (
-                <p className="usage-note">Showing the last known numbers.</p>
+                <p className="usage-note">
+                  {t('Showing the last known numbers.')}
+                </p>
               )}
             </>
           )}
