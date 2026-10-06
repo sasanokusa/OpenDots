@@ -16,6 +16,7 @@ import {
 import { documentExtensions } from './markdown';
 import { SlashCommands } from './slash-commands';
 import { openPageLink } from '../page-navigation';
+import { t } from '../selfhost/i18n';
 export default function RichEditor({
   value,
   onChange,
@@ -35,7 +36,7 @@ export default function RichEditor({
       ...documentExtensions(),
       Markdown,
       Placeholder.configure({
-        placeholder: 'Start writing, or type / for blocks…',
+        placeholder: t('Start writing, or type / for blocks…'),
       }),
       SlashCommands,
     ],
@@ -45,7 +46,7 @@ export default function RichEditor({
     editorProps: {
       attributes: {
         class: 'document-prose',
-        'aria-label': 'Page content',
+        'aria-label': t('Page content'),
         role: 'textbox',
         'aria-multiline': 'true',
       },
@@ -68,7 +69,9 @@ export default function RichEditor({
         if (/<(img|iframe|script)\b/i.test(html)) {
           event.preventDefault();
           notice.current(
-            'Images and embedded content are not supported here. Use Markdown source to keep their original markup.',
+            t(
+              'Images and embedded content are not supported here. Use Markdown source to keep their original markup.',
+            ),
           );
           return true;
         }
@@ -106,25 +109,29 @@ export default function RichEditor({
       });
     }
   }, [editor, value]);
-  if (!editor) return <div className="editor-loading">Loading editor…</div>;
+  if (!editor)
+    return <div className="editor-loading">{t('Loading editor…')}</div>;
+  const [hintBefore, hintAfter] = t(
+    'Type {key} for blocks · ⌘/Ctrl + S to save',
+  ).split('{key}');
   return (
     <>
       <div
         className="format-toolbar"
         role="toolbar"
-        aria-label="Text formatting"
+        aria-label={t('Text formatting')}
       >
         <button
-          title="Bold (⌘/Ctrl B)"
-          aria-label="Bold"
+          title={t('Bold (⌘/Ctrl B)')}
+          aria-label={t('Bold')}
           aria-pressed={state?.bold}
           onClick={() => editor.chain().focus().toggleBold().run()}
         >
           <Bold size={16} />
         </button>
         <button
-          title="Italic (⌘/Ctrl I)"
-          aria-label="Italic"
+          title={t('Italic (⌘/Ctrl I)')}
+          aria-label={t('Italic')}
           aria-pressed={state?.italic}
           onClick={() => editor.chain().focus().toggleItalic().run()}
         >
@@ -132,43 +139,43 @@ export default function RichEditor({
         </button>
         <span className="toolbar-divider" />
         <button
-          title="Bullet list"
-          aria-label="Bullet list"
+          title={t('Bullet list')}
+          aria-label={t('Bullet list')}
           aria-pressed={state?.bullet}
           onClick={() => editor.chain().focus().toggleBulletList().run()}
         >
           <List size={17} />
         </button>
         <button
-          title="Numbered list"
-          aria-label="Numbered list"
+          title={t('Numbered list')}
+          aria-label={t('Numbered list')}
           aria-pressed={state?.ordered}
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
         >
           <ListOrdered size={17} />
         </button>
         <button
-          title="Quote"
-          aria-label="Quote"
+          title={t('Quote')}
+          aria-label={t('Quote')}
           aria-pressed={state?.quote}
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
         >
           <Quote size={15} />
         </button>
         <button
-          title="Code block"
-          aria-label="Code block"
+          title={t('Code block')}
+          aria-label={t('Code block')}
           aria-pressed={state?.code}
           onClick={() => editor.chain().focus().toggleCodeBlock().run()}
         >
           <Code2 size={17} />
         </button>
         <button
-          title="Add link"
-          aria-label="Add link"
+          title={t('Add link')}
+          aria-label={t('Add link')}
           onClick={() => {
             const url = window.prompt(
-              'Link URL (https:// or an internal page link)',
+              t('Link URL (https:// or an internal page link)'),
               editor.getAttributes('link').href ?? '',
             );
             if (url === null) return;
@@ -177,7 +184,7 @@ export default function RichEditor({
               return;
             }
             if (!/^(https?:\/\/|\/#\/spaces\/)/i.test(url)) {
-              onNotice('Use a public http(s) URL or an internal page link.');
+              onNotice(t('Use a public http(s) URL or an internal page link.'));
               return;
             }
             editor
@@ -192,16 +199,16 @@ export default function RichEditor({
         </button>
         <span className="toolbar-divider" />
         <button
-          aria-label="Undo"
-          title="Undo"
+          aria-label={t('Undo')}
+          title={t('Undo')}
           disabled={!state?.undo}
           onClick={() => editor.chain().focus().undo().run()}
         >
           <Undo2 size={16} />
         </button>
         <button
-          aria-label="Redo"
-          title="Redo"
+          aria-label={t('Redo')}
+          title={t('Redo')}
           disabled={!state?.redo}
           onClick={() => editor.chain().focus().redo().run()}
         >
@@ -210,7 +217,9 @@ export default function RichEditor({
       </div>
       <EditorContent editor={editor} />
       <p className="editor-hint">
-        Type <kbd>/</kbd> for blocks · ⌘/Ctrl + S to save
+        {hintBefore}
+        <kbd>/</kbd>
+        {hintAfter}
       </p>
     </>
   );

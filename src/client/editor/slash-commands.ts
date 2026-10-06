@@ -3,9 +3,14 @@ import Suggestion, {
   exitSuggestion,
   type SuggestionProps,
 } from '@tiptap/suggestion';
+import { t } from '../selfhost/i18n';
 interface Block {
+  /** English title; also the identifier. Translate it for display. */
   title: string;
+  /** English description. Translate it for display. */
   description: string;
+  /** Extra search terms (Japanese readings) so IME input finds the block. */
+  keywords?: string;
   run: (editor: Editor, range: Range) => void;
 }
 const command =
@@ -17,6 +22,7 @@ export const blocks: Block[] = [
   {
     title: 'Text',
     description: 'Start with a plain paragraph',
+    keywords: 'ほんぶん だんらく テキスト',
     run: command((e) => e.chain().setParagraph().run()),
   },
   ...([1, 2, 3] as const).map((level) => ({
@@ -27,46 +33,70 @@ export const blocks: Block[] = [
         : level === 2
           ? 'A medium section heading'
           : 'A small section heading',
+    keywords: '見出し みだし',
     run: command((e) => e.chain().setHeading({ level }).run()),
   })),
   {
     title: 'Bullet list',
     description: 'A simple unordered list',
+    keywords: 'かじょうがき りすと リスト',
     run: command((e) => e.chain().toggleBulletList().run()),
   },
   {
     title: 'Numbered list',
     description: 'An ordered sequence',
+    keywords: 'ばんごう りすと リスト',
     run: command((e) => e.chain().toggleOrderedList().run()),
   },
   {
     title: 'Checklist',
     description: 'Track things to do',
+    keywords: 'ちぇっくりすと ちぇっく やること todo',
     run: command((e) => e.chain().toggleTaskList().run()),
   },
   {
     title: 'Quote',
     description: 'Highlight a passage',
+    keywords: 'いんよう',
     run: command((e) => e.chain().toggleBlockquote().run()),
   },
   {
     title: 'Code',
     description: 'A code block',
+    keywords: 'こーど こーどぶろっく ソースコード',
     run: command((e) => e.chain().toggleCodeBlock().run()),
   },
   {
     title: 'Divider',
     description: 'Separate sections',
+    keywords: 'くぎりせん 罫線 くぎり',
     run: command((e) => e.chain().setHorizontalRule().run()),
   },
   {
     title: 'Table',
     description: 'Three columns with a header',
+    keywords: 'ひょう てーぶる テーブル',
     run: command((e) =>
       e.chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
     ),
   },
 ];
+/** Matches English and Japanese titles, descriptions and keywords. */
+export const searchBlocks = (query: string) => {
+  const needle = query.toLowerCase();
+  return blocks.filter((block) =>
+    [
+      block.title,
+      block.description,
+      t(block.title),
+      t(block.description),
+      block.keywords ?? '',
+    ]
+      .join(' ')
+      .toLowerCase()
+      .includes(needle),
+  );
+};
 export const SlashCommands = Extension.create({
   name: 'slashCommands',
   addProseMirrorPlugins() {
@@ -76,12 +106,7 @@ export const SlashCommands = Extension.create({
         char: '/',
         startOfLine: true,
         allowedPrefixes: null,
-        items: ({ query }) =>
-          blocks.filter((block) =>
-            `${block.title} ${block.description}`
-              .toLowerCase()
-              .includes(query.toLowerCase()),
-          ),
+        items: ({ query }) => searchBlocks(query),
         command: ({ editor, range, props }) => props.run(editor, range),
         render: () => {
           let menu: HTMLDivElement | undefined;
@@ -108,11 +133,11 @@ export const SlashCommands = Extension.create({
             menu.replaceChildren();
             const label = document.createElement('div');
             label.className = 'slash-menu-label';
-            label.textContent = 'INSERT BLOCK';
+            label.textContent = t('INSERT BLOCK');
             menu.append(label);
             if (!props.items.length) {
               const empty = document.createElement('p');
-              empty.textContent = 'No matching blocks';
+              empty.textContent = t('No matching blocks');
               menu.append(empty);
             }
             props.items.forEach((item, i) => {
@@ -123,9 +148,9 @@ export const SlashCommands = Extension.create({
               button.setAttribute('aria-selected', String(i === index));
               button.className = i === index ? 'selected' : '';
               const title = document.createElement('strong');
-              title.textContent = item.title;
+              title.textContent = t(item.title);
               const description = document.createElement('span');
-              description.textContent = item.description;
+              description.textContent = t(item.description);
               button.append(title, description);
               button.addEventListener('mousedown', (event) =>
                 event.preventDefault(),
@@ -154,7 +179,7 @@ export const SlashCommands = Extension.create({
               menu.id = 'document-block-menu';
               menu.className = 'slash-menu';
               menu.setAttribute('role', 'listbox');
-              menu.setAttribute('aria-label', 'Insert block');
+              menu.setAttribute('aria-label', t('Insert block'));
               document.body.append(menu);
               props.editor.view.dom.setAttribute('aria-controls', menu.id);
               props.editor.view.dom.setAttribute('aria-autocomplete', 'list');
