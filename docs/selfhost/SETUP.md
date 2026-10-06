@@ -207,82 +207,72 @@ Cloudflare Zero Trustの「Access」でこのホスト名のSelf-hostedアプリ
 
 ## saserverで常時動かす
 
-本番はsaserverで動かす予定です。saserverはTailscale（`ssh saserver`）とCloudflare Access（`ssh saserver-cloudflare`）の両方から入れるので、Web画面もTailscale経由で開くのが手軽です。以下はLinuxとsystemdを前提にした手順で、saserverの環境を確かめたら合わせて直します。
+本番はsaserver（Ubuntu 24.04）で動いています。2026-10-07に次の形で配置しました。
 
-1. Node.js 24以上を入れ、Forkを取得します。
+| 項目         | 内容                                                                                           |
+| ------------ | ---------------------------------------------------------------------------------------------- |
+| URL          | https://saserver.tailbf5177.ts.net:8443 （tailnetの中だけ。443番は別のサービスが使用中）       |
+| 置き場所     | `~/services/opendots`（`selfhost`ブランチ）                                                    |
+| Node.js      | `~/.local/opt/node26`（v26。システムのNode 20には触れていない）                                |
+| 設定         | `~/services/opendots/.env`（権限600。`OWNER_TOKEN`、`APP_ORIGIN`、`PUBLIC_APP_URL`を追記済み） |
+| 常駐         | systemdのユーザーサービス `opendots.service`（`UMask=0077`）                                   |
+| 公開         | `tailscale serve --bg --https=8443 http://127.0.0.1:4310`                                      |
+| データ       | `~/services/opendots/data/opendots.sqlite`（権限600）                                          |
+| バックアップ | `opendots-backup.timer` が毎日4:30に `~/backups/opendots` へ保存し、14世代残す                 |
 
-   ```sh
-   git clone -b selfhost https://github.com/sasanokusa/OpenDots.git ~/OpenDots
-   cd ~/OpenDots
-   npm ci
-   npm run build
-   ```
+画面を開くと`OWNER_TOKEN`の入力を求められます。値はsaserverで確かめます。
 
-2. 手元の`.env`をコピーし、本人だけが読めるようにします。`.env`はGitに入れません。
+```sh
+ssh saserver "grep '^OWNER_TOKEN=' ~/services/opendots/.env"
+```
 
-   ```sh
-   scp .env saserver:~/OpenDots/.env
-   ssh saserver 'chmod 600 ~/OpenDots/.env'
-   ```
+よく使う操作です。
 
-   saserver側の`.env`では、`OWNER_TOKEN`（24文字以上）と`APP_ORIGIN`（次の手順で決まるURL）を追記します。`HOST=127.0.0.1`は変えません。
+```sh
+# 状態とログ
+ssh saserver 'systemctl --user status opendots --no-pager; journalctl --user -u opendots -n 50 --no-pager'
+# 更新（pullしてビルドし直し、再起動）
+ssh saserver 'cd ~/services/opendots && export PATH=$HOME/.local/opt/node26/bin:$PATH && git pull --ff-only && npm ci && npm run build && systemctl --user restart opendots'
+# .envを変えたあと
+ssh saserver 'systemctl --user restart opendots'
+```
 
-3. Tailscaleでtailnetの中だけにHTTPSで公開します。
+一から作り直すときの手順は次のとおりです。
 
-   ```sh
-   sudo tailscale serve --bg --https=443 http://127.0.0.1:4310
-   tailscale serve status
-   ```
-
-   表示された`https://saserver.<tailnet名>.ts.net`を`APP_ORIGIN`に入れます。
-
-4. systemdのユーザーサービスにして、ログアウト後も動かします。`~/.config/systemd/user/opendots.service`を作ります。
+1. Node.js 26を`~/.local/opt`に展開し、`~/.local/opt/node26`へリンクを張ります（`nodejs.org/dist`の`SHASUMS256.txt`で検証）。
+2. `git clone -b selfhost https://github.com/sasanokusa/OpenDots.git ~/services/opendots`、続けて`npm ci`と`npm run build`を実行します。
+3. 手元の`.env`を権限600で置き、`OWNER_TOKEN`（24文字以上のランダムな文字列）、`APP_ORIGIN`と`PUBLIC_APP_URL`（上のURL）を追記します。`HOST=127.0.0.1`は変えません。
+4. `~/.config/systemd/user/opendots.service`を作り、`systemctl --user enable --now opendots`を実行します。saserverはlingerが有効なので、ログアウト後も動き続けます。
 
    ```ini
    [Unit]
-   Description=OpenDots (self-host fork)
+   Description=OpenDots self-host fork (CommandCode, tailnet only)
    After=network-online.target
 
    [Service]
-   WorkingDirectory=%h/OpenDots
-   ExecStart=/usr/bin/env node --env-file=.env dist/server/server/index.js
+   WorkingDirectory=%h/services/opendots
+   ExecStart=%h/.local/opt/node26/bin/node --env-file=.env dist/server/server/index.js
    Restart=on-failure
+   UMask=0077
    RestartSec=5
 
    [Install]
    WantedBy=default.target
    ```
 
-   ```sh
-   systemctl --user daemon-reload
-   systemctl --user enable --now opendots
-   sudo loginctl enable-linger "$USER"
-   journalctl --user -u opendots -f
-   ```
-
-   `node`がnvmなどで入っていてsystemdから見えない場合は、`ExecStart`を`node`の絶対パスにします。
-
-5. 更新するときは次を実行します。
-
-   ```sh
-   cd ~/OpenDots && git pull && npm ci && npm run build && systemctl --user restart opendots
-   ```
+5. `tailscale serve --bg --https=8443 http://127.0.0.1:4310`で公開します。saserverでは`sasa`がTailscaleのoperatorなので、sudoは要りません。
 
 ## バックアップ
 
-SQLiteは毎日バックアップします。SQLiteはWALモードで動いており、書き込み途中の内容が`-wal`ファイルにあるため、`opendots.sqlite`を`cp`するだけでは一貫したバックアップになりません。`.backup`は動いたままのデータベースから一貫したコピーを作ります。
+SQLiteはWALモードで動いていて、書き込み途中の内容が`-wal`ファイルにあるため、`opendots.sqlite`を`cp`するだけでは一貫したコピーになりません。`npm run selfhost:backup`は`VACUUM INTO`で、アプリを止めずに一貫したコピーを`BACKUP_DIR`（既定は`data/backups`）に作ります。`sqlite3`コマンドは要りません。`BACKUP_KEEP`（既定14）より古いものは消します。saserverではタイマー（`opendots-backup.timer`）で毎日4:30に実行しています。
 
 ```sh
-sqlite3 data/opendots.sqlite ".backup data/backup-$(date +%F).sqlite"
+BACKUP_DIR=~/backups/opendots npm run selfhost:backup
 ```
 
-アプリのフォルダで実行します。cronに入れる場合は、`%`が特別な意味を持つため`date +\%F`と書きます。
+バックアップはsaserverの同じディスクにあります。ディスクの故障に備えるなら、`~/backups/opendots`を別の機械にも定期的に写してください。`.env`にはキーとトークンが入っているので、データベースとは別の安全な場所に置きます。
 
-```sh
-0 4 * * * cd /path/to/OpenDots && sqlite3 data/opendots.sqlite ".backup data/backup-$(date +\%F).sqlite"
-```
-
-古いバックアップの整理は、保管したい期間に合わせて自分で決めてください。`.env`にはキーとトークンが入っているので、バックアップする場合はデータベースとは別の安全な場所に置きます。戻すときは、サーバーを止め、バックアップを`DATABASE_PATH`の位置に置き、古い`-wal`と`-shm`ファイルを消してから起動します。
+戻すときは、サービスを止め（`systemctl --user stop opendots`）、バックアップを`DATABASE_PATH`の位置に置き、古い`-wal`と`-shm`ファイルを消してから起動します。
 
 ## 週次の見直し
 
