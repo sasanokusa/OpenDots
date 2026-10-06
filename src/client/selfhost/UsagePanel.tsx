@@ -60,7 +60,10 @@ export function createThrottle(
 }
 
 export function usd(value: number, trim = false): string {
-  const text = Math.abs(Number.isFinite(value) ? value : 0).toFixed(2);
+  const amount = Math.abs(Number.isFinite(value) ? value : 0);
+  // Single cheap calls cost fractions of a cent; show that something was spent.
+  if (amount > 0 && amount < 0.005) return '<$0.01';
+  const text = amount.toFixed(2);
   return `$${trim && text.endsWith('.00') ? text.slice(0, -3) : text}`;
 }
 
