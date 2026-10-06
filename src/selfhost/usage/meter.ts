@@ -10,7 +10,7 @@ import {
   type RoleName,
 } from '../config/models.js';
 import type { UsageRecord, UsageRecorder } from '../types.js';
-import { dayOfMonth, fiveHourStart, monthStart, weekStart } from './windows.js';
+import { fiveHourStart, monthStart, weekStart } from './windows.js';
 
 export interface WindowUsage {
   usedUSD: number;
@@ -227,7 +227,8 @@ export class UsageMeter implements UsageRecorder {
       };
     }
     const month = windowUsage(since.month, limits.monthUSD);
-    const day = dayOfMonth(now);
+    // Day within the billing month, which may not start on the 1st.
+    const day = Math.floor((now - since.month) / 86_400_000) + 1;
     const idealToDateUSD = policy.idealDailyUSD * day;
     return {
       at: now,

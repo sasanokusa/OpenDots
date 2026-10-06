@@ -94,9 +94,10 @@ export function routeState(messages: Message[]): string {
 }
 
 export function fallbackRole(text: string): TurnRole {
-  const steps = text
-    .split('\n')
-    .filter((line) => /^\s*([-*•]|\d+[.)]|[①-⑳])\s+/.test(line)).length;
+  const steps = text.split('\n').filter((line) =>
+    // ASCII numbers need a following space so "1.5km" is not a step.
+    /^\s*(?:[-*•]\s+|\d+[.)]\s+|[・①-⑳]|[０-９]+[．.)）、])/.test(line),
+  ).length;
   return text.length > routing.fallbackRule.plannerMinChars ||
     steps >= routing.fallbackRule.plannerMinSteps
     ? 'planner'
@@ -239,15 +240,19 @@ export function decideRoute(input: {
         reason: 'policy:plannerReserved',
       };
   }
-  if (decision.role === 'chat' && policy.chatExhausted)
-    decision = { ...decision, role: 'worker', reason: 'policy:chatExhausted' };
-  for (let role: TurnRole | undefined = decision.role; role;) {
-    if (!isCoolingDown(policy, role, now)) {
-      if (role !== decision.role)
-        decision = { ...decision, role, reason: 'policy:coolingDown' };
+  // Walk the fallback chain past roles that are rate-limited or out of budget.
+  let skipped: string | undefined;
+  for (
+    let role: TurnRole | undefined = decision.role;
+    role;
+    role = FALLBACK[role]
+  ) {
+    const exhausted = role === 'chat' && policy.chatExhausted;
+    if (!exhausted && !isCoolingDown(policy, role, now)) {
+      if (skipped) decision = { ...decision, role, reason: skipped };
       break;
     }
-    role = FALLBACK[role];
+    skipped ??= exhausted ? 'policy:chatExhausted' : 'policy:coolingDown';
   }
   return decision;
 }

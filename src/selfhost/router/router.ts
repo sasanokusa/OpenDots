@@ -37,6 +37,9 @@ export const HIGH_IMPACT_SUFFIX =
 export const ESCALATE_SUFFIX =
   'The owner asked for escalation with /escalate. First call ask_advisor with a ticket built from this conversation, then act on the advice.';
 
+export const ESCALATE_UNAVAILABLE_SUFFIX =
+  'The owner asked for escalation with /escalate, but the planning model is rate-limited right now so the advisor cannot be reached. Say so plainly, help as far as you can, and suggest sending /escalate again in about ten minutes.';
+
 export const WORKER_SUFFIX = `Routing: you are handling this request directly as a worker. Do the task with the tools provided and report the result concisely. ${LANGUAGE}`;
 
 /**
@@ -238,16 +241,18 @@ export function createTurnPlanner(deps: TurnPlannerDeps): TurnPlanner {
           ...(state.forceAdvisor ? [ESCALATE_SUFFIX] : []),
         ].join('\n'),
       };
+    const unavailable =
+      decision.command === 'escalate' ? [ESCALATE_UNAVAILABLE_SUFFIX] : [];
     if (role === 'chat')
       return {
         ...common,
         tools: chatTools(input, state),
-        systemPromptSuffix: CHAT_SUFFIX,
+        systemPromptSuffix: [CHAT_SUFFIX, ...unavailable].join('\n'),
       };
     return {
       ...common,
       tools: input.baseTools,
-      systemPromptSuffix: WORKER_SUFFIX,
+      systemPromptSuffix: [WORKER_SUFFIX, ...unavailable].join('\n'),
     };
   }) as TurnPlanner;
   planner.log = log;

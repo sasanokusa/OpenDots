@@ -1,6 +1,6 @@
 import { policy, roles, type RoleName } from '../config/models.js';
 import type { UsageMeter } from './meter.js';
-import { dayOfMonth, localHour } from './windows.js';
+import { localHour } from './windows.js';
 
 export interface PolicyFlags {
   pauseEscalation: boolean;
@@ -54,7 +54,7 @@ export function evaluatePolicy(meter: UsageMeter, now?: number): PolicyFlags {
   const { monthlyCapUSD } = roles.chat;
   const { weeklyTargetUSD } = roles.planner;
   const behindPace =
-    dayOfMonth(at) >= policy.behindPace.fromDay &&
+    summary.pace.dayOfMonth >= policy.behindPace.fromDay &&
     !reaches(month.usedUSD, policy.behindPace.monthBelowUSD);
   const hour = localHour(at);
 

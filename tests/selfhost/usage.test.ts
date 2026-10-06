@@ -571,3 +571,19 @@ describe('policy flags', () => {
     });
   });
 });
+
+describe('billing month that does not start on the 1st', () => {
+  it('counts pace and behindPace from the billing start day', () => {
+    // 2026-10-07 12:00 JST; billing month began 2026-09-25 00:00 JST.
+    const now = iso('2026-10-07T03:00:00Z');
+    const meter = open({ now: () => now, monthStartDay: 25 });
+    const summary = meter.summary();
+    expect(summary.windows.month.since).toBe(iso('2026-09-24T15:00:00Z'));
+    expect(summary.pace.dayOfMonth).toBe(13);
+    expect(summary.pace.idealToDateUSD).toBeCloseTo(policy.idealDailyUSD * 13);
+    expect(evaluatePolicy(meter).behindPace).toBe(false);
+
+    const late = iso('2026-10-16T03:00:00Z'); // day 22 of the billing month
+    expect(evaluatePolicy(meter, late).behindPace).toBe(true);
+  });
+});
