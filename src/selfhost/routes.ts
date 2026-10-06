@@ -12,6 +12,12 @@ const threadPatch = z
   })
   .strict()
   .refine((value) => value.name !== undefined || value.archived !== undefined);
+const calibration = z
+  .object({
+    model: z.string().min(1).max(200),
+    factor: z.number().positive().max(10),
+  })
+  .strict();
 
 /** Mounted at `/api/selfhost`, behind upstream's owner-token middleware. */
 export function selfhostRoutes(
@@ -54,6 +60,25 @@ export function selfhostRoutes(
       policy: evaluatePolicy(backend.meter),
     }),
   );
+  app.get('/usage/calibration', (c) => c.json(backend.meter.calibration()));
+  app.put('/usage/calibration', async (c) => {
+    const parsed = calibration.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success)
+      return c.json(
+        { error: 'Send a model and a factor between 0 and 10.' },
+        400,
+      );
+    backend.meter.setCalibration(parsed.data.model, parsed.data.factor);
+    backend.events.emit({ type: 'usage_updated' });
+    return c.json(backend.meter.calibration());
+  });
+  app.get('/decisions', (c) => {
+    const limit = Math.min(
+      Math.max(Number(c.req.query('limit')) || 100, 1),
+      1000,
+    );
+    return c.json({ decisions: backend.decisions.recent(limit) });
+  });
   app.get('/events', (c) =>
     streamSSE(c, async (stream) => {
       const queue: SelfhostEvent[] = [];

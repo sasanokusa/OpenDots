@@ -10,6 +10,7 @@ import { ThreadService } from './threads/service.js';
 import { pageThreads } from './threads/page-adapter.js';
 import { runTurnInProcess } from './headless.js';
 import { UsageMeter, type UsageMeterOptions } from './usage/meter.js';
+import { DecisionLog } from './router/decision-log.js';
 
 export interface SelfhostBackend {
   readonly db: DatabaseSync;
@@ -18,6 +19,7 @@ export interface SelfhostBackend {
   readonly events: SelfhostEvents;
   readonly pageThreads: PageIntelligence;
   readonly meter: UsageMeter;
+  readonly decisions: DecisionLog;
   turn(
     agent: AbstractAgent,
     threadId: string,
@@ -63,6 +65,7 @@ export function createSelfhostBackend({
     threads,
     events,
     meter,
+    decisions: new DecisionLog(db, now),
     pageThreads: pageThreads(threads, runner),
     turn: (agent, threadId, prompt, signal, metadata) =>
       runTurnInProcess(runner, agent, threadId, prompt, signal, metadata),

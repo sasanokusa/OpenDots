@@ -391,3 +391,26 @@ it('escalates to Sonnet on /escalate without calling Jev', async () => {
   );
   expect(chatModels()[0]).toBe(roles.planner.model);
 });
+
+it('exposes routing decisions and usage calibration to the owner', async () => {
+  const { app, platform, dot } = fixture('on');
+  const thread = await platform.createConversation(dot.id, 'Review');
+  jevAnswers({ chat: 0.9, planner: 0.05, worker: 0.05 });
+  await platform.turn(thread.id, 'hello', new AbortController().signal);
+  const decisions = (await (
+    await app.request('/api/selfhost/decisions?limit=5')
+  ).json()) as { decisions: { final_role: string; jev_choice: string }[] };
+  expect(decisions.decisions[0]).toMatchObject({
+    final_role: 'chat',
+    jev_choice: 'chat',
+  });
+  const put = (body: unknown) =>
+    app.request('/api/selfhost/usage/calibration', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  expect((await put({ model: roles.chat.model, factor: 0 })).status).toBe(400);
+  const saved = await put({ model: roles.chat.model, factor: 1.25 });
+  expect(await saved.json()).toEqual({ [roles.chat.model]: 1.25 });
+});

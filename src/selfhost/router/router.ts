@@ -45,7 +45,9 @@ export const WORKER_SUFFIX = `Routing: you are handling this request directly as
  * forced role gets no tools beyond what the Dot already allows.
  */
 export function forcedRole(messages: Message[]): TurnRole | undefined {
-  const last = [...messages].reverse().find((message) => message.role === 'user');
+  const last = [...messages]
+    .reverse()
+    .find((message) => message.role === 'user');
   const role = (last as { metadata?: { selfhostRole?: unknown } } | undefined)
     ?.metadata?.selfhostRole;
   return role === 'worker' || role === 'chat' || role === 'planner'
@@ -60,6 +62,7 @@ export interface TurnPlannerDeps {
   routerEnabled: boolean;
   /** Model used for every turn when the router is off. */
   singleModel: string;
+  log?: DecisionLog;
   now?: () => number;
 }
 
@@ -70,7 +73,7 @@ export interface TurnPlanner {
 
 export function createTurnPlanner(deps: TurnPlannerDeps): TurnPlanner {
   const now = deps.now ?? Date.now;
-  const log = new DecisionLog(deps.db, now);
+  const log = deps.log ?? new DecisionLog(deps.db, now);
   const ledger = new AdvisorLedger(deps.db, now);
   const policy = () => evaluatePolicy(deps.meter, now());
 

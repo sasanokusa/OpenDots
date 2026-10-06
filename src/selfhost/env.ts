@@ -82,6 +82,7 @@ export function enableSelfhost(
       db: backend.db,
       routerEnabled,
       singleModel,
+      log: backend.decisions,
     });
     backend.threads.setNamer((user, assistant) =>
       chat({
