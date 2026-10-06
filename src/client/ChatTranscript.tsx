@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import type { AssistantMessage, Message } from '@ag-ui/core';
 import type { CallReceipt } from '../shared/types';
 import { voiceReceiptMessagePrefix } from '../shared/voice-receipt';
+import { t, tMessage } from './selfhost/i18n';
 // These markers only control rendering; they do not confer trust or permissions.
 export function isInternalVoiceReceipt(message: Message): boolean {
   const metadata = message.metadata;
@@ -23,12 +24,14 @@ function Receipt({ call }: { call: CallReceipt }) {
       <PhoneOff size={13} />
       <span>
         {call.status === 'failed'
-          ? 'Call failed'
+          ? t('Call failed')
           : call.endedAt
-            ? `${Math.round((call.endedAt - call.startedAt) / 1000)}s · Call ended`
-            : 'Call in progress'}
+            ? t('{seconds}s · Call ended', {
+                seconds: Math.round((call.endedAt - call.startedAt) / 1000),
+              })
+            : t('Call in progress')}
       </span>
-      {call.error && <small>{call.error}</small>}
+      {call.error && <small>{tMessage(call.error)}</small>}
     </div>
   );
 }
