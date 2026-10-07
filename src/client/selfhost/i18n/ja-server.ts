@@ -194,6 +194,31 @@ export const entries: Record<string, string> = {
     '別のバックログ項目がすでに実行中です。',
   'Only queued items can be run.': '待機中の項目だけ実行できます。',
   'Server stopped during this run.': '実行中にサーバーが停止しました。',
+
+  // Connected services (src/server/connection-routes.ts, connections.ts).
+  'Connection not found.': 'サービス連携が見つかりません。',
+  'Connection tool not found.': '連携サービスのツールが見つかりません。',
+  'Connection tool is not available to this Dot.':
+    'このDotは、この連携サービスのツールを使えません。',
+  'This tool is no longer enabled for this Dot. Nothing was run.':
+    'このツールは、このDotでは有効ではなくなりました。何も実行されていません。',
+  'Approval request not found.': '承認リクエストが見つかりません。',
+  'This approval request expired. Ask the Dot to try again.':
+    'この承認リクエストは有効期限が切れました。Dotにもう一度依頼してください。',
+  'This action belongs to a different approval request.':
+    'この操作は、別の承認リクエストのものです。',
+  'This action is already running.': 'この操作はすでに実行中です。',
+  'Invalid connection request.': '接続のリクエストが無効です。',
+  'Use an http(s) MCP endpoint without embedded credentials.':
+    '認証情報を含まない、httpまたはhttpsのMCPエンドポイントを指定してください。',
+  'The connected service did not respond in time.':
+    '連携サービスから時間内に応答がありませんでした。',
+  'The connected service rejected the credentials. Check the bearer token.':
+    '連携サービスが認証情報を受け付けませんでした。Bearerトークンを確認してください。',
+  'Could not reach the connected service.':
+    '連携サービスに接続できませんでした。',
+  'The service returned an unreadable result.':
+    'サービスが返した結果を読み取れませんでした。',
 };
 
 // Most specific first: the first matching pattern wins.
@@ -203,6 +228,10 @@ export const patterns: Pattern[] = [
     '安全チェックで危険と判断されました: $1',
   ],
   [/^The safety check failed: (.+)$/s, '安全チェックに失敗しました: $1'],
+  [
+    /^This connected-service action asks you first: (.+)\.$/s,
+    'つないだサービスへの操作なので、確認が必要です: $1',
+  ],
   [/^A permission rule asks first: (.+)\.$/s, '権限ルールで確認が必要です: $1'],
   [
     /^The path could not be checked: (.+)\.$/s,
@@ -287,5 +316,9 @@ export const patterns: Pattern[] = [
   [
     /^(.+) does not support zero data retention$/,
     '$1はゼロデータ保持に対応していません',
+  ],
+  [
+    /^Could not reach the connected service: (.+)$/s,
+    '連携サービスに接続できませんでした: $1',
   ],
 ];

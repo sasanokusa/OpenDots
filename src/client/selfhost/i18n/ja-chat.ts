@@ -116,6 +116,27 @@ export const entries: Record<string, string> = {
   'No page was saved.': 'ページは保存されませんでした。',
   'Nothing is saved until you approve.': '承認するまで何も保存されません。',
 
+  // ConnectionActionCard.tsx
+  'Could not load this request.': 'このリクエストを読み込めませんでした。',
+  'Could not check this action.': 'この操作の状態を確認できませんでした。',
+  'Could not run this action.': 'この操作を実行できませんでした。',
+  'Approve connected-service action': '連携サービスの操作を承認',
+  'Connected service': '連携サービス',
+  Declined: '却下済み',
+  Ended: '終了済み',
+  'Preparing the action…': '操作を準備しています…',
+  'Cannot run': '実行できません',
+  'This card’s saved result belongs to a different approval request. Nothing was run for this one.':
+    'このカードに保存された結果は、別の承認リクエストのものです。今回のリクエストでは、何も実行していません。',
+  'Service error': 'サービスのエラー',
+  'Service response': 'サービスの応答',
+  'Running…': '実行しています…',
+  'Approve & run': '承認して実行',
+  'This action is still running on the server.':
+    'この操作は、サーバー上でまだ実行中です。',
+  'Nothing runs until you approve. These are the exact arguments.':
+    '承認するまで何も実行されません。表示している引数が、そのまま渡されます。',
+
   // ComputerToolCard.tsx
   'Opening website': 'Webサイトを開く',
   'Inspecting browser': 'ブラウザーを確認',

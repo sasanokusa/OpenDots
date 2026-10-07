@@ -202,6 +202,19 @@ describe('ChatTranscript', () => {
       />,
     );
 
+  it('labels a scheduled task message in Japanese', () => {
+    const html = renderToStaticMarkup(
+      <ChatTranscript
+        messages={[
+          { id: 'opendots:scheduled_task:one', role: 'user', content: '日報' },
+        ]}
+        calls={[]}
+      />,
+    );
+    expect(html).toContain('>定期実行<');
+    expect(html).not.toContain('>Scheduled<');
+  });
+
   it('shows call receipts in Japanese and leaves messages alone', () => {
     const html = render([call({})]);
     expect(html).toContain('5秒 · 通話を終了しました');

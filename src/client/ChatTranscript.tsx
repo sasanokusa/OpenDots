@@ -65,7 +65,9 @@ export function ChatTranscript({
               className={`chat-bubble ${message.role}${isScheduledTaskMessage(message) ? ' scheduled' : ''}`}
             >
               {isScheduledTaskMessage(message) && (
-                <span className="scheduled-message-label">Scheduled</span>
+                <span className="scheduled-message-label">
+                  {t('Scheduled')}
+                </span>
               )}
               <ReactMarkdown
                 components={{

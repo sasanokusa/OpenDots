@@ -213,6 +213,34 @@ export const entries: Record<string, string> = {
   'Saving…': '保存中…',
   Save: '保存',
 
+  // Dot settings: connected services (ConnectionsSection.tsx).
+  Connections: 'サービス連携',
+  'Give this Dot tools from MCP servers. Read-only tools run on their own; anything else asks you in chat before it runs. Tokens stay on the server.':
+    'MCPサーバーのツールを、このDotに使わせることができます。読み取り専用のツールは、そのまま実行されます。それ以外は、実行する前にチャットで確認します。トークンはサーバーにだけ保存されます。',
+  'Could not load connections.': 'サービス連携を読み込めませんでした。',
+  'Request failed.': 'リクエストに失敗しました。',
+  'token saved': 'トークン保存済み',
+  'Refresh {name} tools': '{name}のツールを更新',
+  'Remove {name}': '{name}を削除',
+  'Remove {name} from this Dot?': 'このDotから{name}を削除しますか？',
+  'This server offers no tools.': 'このサーバーが提供するツールはありません。',
+  'read-only': '読み取り専用',
+  'Ask first': '実行前に確認',
+  'Add an MCP server': 'MCPサーバーを追加',
+  'Name, e.g. GitHub': '名前（例: GitHub）',
+  'MCP server URL': 'MCPサーバーのURL',
+  'Bearer token (optional)': 'Bearerトークン（任意）',
+  'Connecting…': '接続しています…',
+  Connect: '接続',
+
+  // Settings: appearance.
+  Appearance: '外観',
+  System: 'システム',
+  Light: 'ライト',
+  Dark: 'ダーク',
+  'Saved in this browser. System follows your device.':
+    'この設定は、このブラウザーに保存されます。「システム」を選ぶと、端末の設定に合わせます。',
+
   // Result pane and computer picker.
   Brief: '要約',
   '{name}’s computer': '{name}のコンピューター',

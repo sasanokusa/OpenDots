@@ -41,6 +41,11 @@ export const entries: Record<string, string> = {
   'New subpage': '新しい子ページ',
   'Download Markdown': 'Markdownをダウンロード',
   'Open source conversation': '元の会話を開く',
+  'Delete page': 'ページを削除',
+  'Delete "{title}"? This can\'t be undone. Any subpages will move to this page\'s parent.':
+    '「{title}」を削除しますか？この操作は元に戻せません。サブページは、このページの親ページの下に移動します。',
+  Untitled: '無題',
+  'Could not delete page.': 'ページを削除できませんでした。',
   'Retry save': '保存を再試行',
   'Download draft': '下書きをダウンロード',
   'Load latest': '最新を読み込む',

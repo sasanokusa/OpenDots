@@ -128,6 +128,11 @@ describe('app shell in Japanese', () => {
       'Slack: 未設定。音声通話: VOICE_API_KEYとVOICE_MODELが必要。',
       'テンプレートのセットアップガイド',
       '>保存<',
+      '外観',
+      '>システム<',
+      '>ライト<',
+      '>ダーク<',
+      'この設定は、このブラウザーに保存されます。',
     ])
       expect(html).toContain(text);
     for (const text of [
@@ -136,6 +141,11 @@ describe('app shell in Japanese', () => {
       'Service setup',
       'Close dialog',
       '>Save<',
+      'Appearance',
+      '>System<',
+      '>Light<',
+      '>Dark<',
+      'Saved in this browser',
     ])
       expect(html).not.toContain(text);
   });

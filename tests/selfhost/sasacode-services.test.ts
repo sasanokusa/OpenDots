@@ -22,7 +22,7 @@ import {
   serviceTools,
   type ServiceToolsInput,
 } from '../../src/selfhost/sasacode/services.js';
-import { sasacodeRun } from './sasacode-helpers.js';
+import { MemoryRecorder, sasacodeRun } from './sasacode-helpers.js';
 
 const tool = (name: string, requiresApproval: boolean, enabled = true) => ({
   name,
@@ -153,7 +153,11 @@ describe('the internal MCP server', () => {
     const runs = new RunRegistry();
     const app = internalApp({
       runs,
-      client: new CommandCodeClient({ apiKey: 'k', baseURL: 'http://x' }),
+      client: new CommandCodeClient({
+        apiKey: 'k',
+        baseURL: 'http://x',
+        recorder: new MemoryRecorder(),
+      }),
     });
     const { tools, calls } = setup();
     const token = runs.open(sasacodeRun({ services: tools }));

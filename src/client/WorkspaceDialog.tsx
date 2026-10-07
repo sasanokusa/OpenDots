@@ -12,6 +12,12 @@ import { t } from './selfhost/i18n';
 /** Slack status as shown to the owner; the raw value is a snake_case id. */
 export const slackStatusLabel = (status: string) =>
   t(status.replaceAll('_', ' '));
+const themeLabel = (option: ThemePreference) =>
+  option === 'system'
+    ? t('System')
+    : option === 'light'
+      ? t('Light')
+      : t('Dark');
 export type Dialog =
   | { type: 'space' }
   | { type: 'dot'; dot?: Dot; spaceId: string }
@@ -380,7 +386,7 @@ export function WorkspaceDialog({
           )}
           {dialog.type === 'settings' && (
             <fieldset className="appearance-fields">
-              <legend>Appearance</legend>
+              <legend>{t('Appearance')}</legend>
               <div className="segmented" role="radiogroup">
                 {(['system', 'light', 'dark'] as ThemePreference[]).map(
                   (option) => (
@@ -395,13 +401,13 @@ export function WorkspaceDialog({
                           setThemePreference(option);
                         }}
                       />
-                      <span>{option[0].toUpperCase() + option.slice(1)}</span>
+                      <span>{themeLabel(option)}</span>
                     </label>
                   ),
                 )}
               </div>
               <p className="muted">
-                Saved in this browser. System follows your device.
+                {t('Saved in this browser. System follows your device.')}
               </p>
             </fieldset>
           )}

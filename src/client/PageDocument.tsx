@@ -206,11 +206,14 @@ export function PageDocument({
                   ]
                 : []),
               {
-                label: 'Delete page',
+                label: t('Delete page'),
                 action: async () => {
                   if (
                     !window.confirm(
-                      `Delete "${draft.title || 'Untitled'}"? This can't be undone. Any subpages will move to this page's parent.`,
+                      t(
+                        'Delete "{title}"? This can\'t be undone. Any subpages will move to this page\'s parent.',
+                        { title: draft.title || t('Untitled') },
+                      ),
                     )
                   )
                     return;
@@ -232,8 +235,8 @@ export function PageDocument({
                   } catch (error) {
                     setNotice(
                       error instanceof Error
-                        ? error.message
-                        : 'Could not delete page.',
+                        ? tMessage(error.message)
+                        : t('Could not delete page.'),
                     );
                   }
                 },
