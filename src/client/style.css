@@ -4559,6 +4559,72 @@ html:lang(ja) .template-app .thread-summary small {
   border-radius: 0;
 }
 
+/* Conversation composer: upstream rounds the box but gives it only a top
+   border and no inner padding, so the icons and the caption touch its edges. */
+.template-app .chat-composer {
+  border: 1px solid #dedede;
+  padding: 6px 10px 10px 12px;
+}
+.template-app .chat-composer:focus-within {
+  border-color: #b8c4fa;
+}
+.template-app .chat-compose-row textarea:focus-visible {
+  outline: none;
+}
+.template-app .chat-compose-note {
+  margin-top: 2px;
+}
+
+/* Typing indicator: a reply-side bubble whose dots bounce in turn. */
+.template-app .thinking {
+  align-self: flex-start;
+  gap: 5px;
+  padding: 11px 15px;
+  background: #f0f1ef;
+  border-radius: 17px 17px 17px 5px;
+}
+.template-app .thinking > span:not(:last-child) {
+  width: 7px;
+  height: 7px;
+  background: #87918b;
+  animation: typing-dot 1.2s infinite ease-in-out;
+}
+.template-app .thinking > span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.template-app .thinking > span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+.template-app .thinking > span:last-child {
+  margin-left: 5px;
+  color: #6f7772;
+}
+@keyframes typing-dot {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .template-app .thinking > span:not(:last-child) {
+    animation: none;
+  }
+}
+
+/* "Read" under the owner's latest message. */
+.read-receipt {
+  align-self: flex-end;
+  margin: -17px 4px 0 0;
+  font-size: 11px;
+  color: #8a918c;
+}
+
 /* selfhost: owner approvals */
 .approval-card {
   flex: 0 0 auto;

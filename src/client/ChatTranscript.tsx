@@ -39,10 +39,13 @@ export function ChatTranscript({
   messages,
   calls,
   renderTools,
+  readMessageId,
 }: {
   messages: Message[];
   calls: CallReceipt[];
   renderTools?: (message: AssistantMessage) => ReactNode;
+  /** fork: the owner's message the Dot has picked up gets a "Read" mark. */
+  readMessageId?: string;
 }) {
   const ids = new Set(messages.map((message) => message.id));
   return (
@@ -83,6 +86,9 @@ export function ChatTranscript({
                 {String(message.content)}
               </ReactMarkdown>
             </div>
+          )}
+          {message.id === readMessageId && (
+            <span className="read-receipt">{t('Read')}</span>
           )}
           {message.role === 'assistant' && renderTools?.(message)}
           {calls

@@ -43,6 +43,7 @@ export const entries: Record<string, string> = {
     'テキストは利用できます。音声通話にはサーバーの別途設定が必要です。',
 
   // ChatTranscript.tsx
+  Read: '既読',
   'Call failed': '通話に失敗しました',
   '{seconds}s · Call ended': '{seconds}秒 · 通話を終了しました',
   'Call in progress': '通話中',

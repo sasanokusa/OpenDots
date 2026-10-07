@@ -33,6 +33,8 @@ import { CallView } from './CallView';
 import { shouldSubmitComposerOnKeyDown } from './chat-composer';
 import { ApprovalCard } from './selfhost/ApprovalCard';
 import { useReconnectOnRunFinished } from './selfhost/events';
+import { useReadReceipt } from './selfhost/read-receipt';
+import { replayOnto } from './selfhost/replay';
 import { t, tMessage } from './selfhost/i18n';
 
 export function Chat({
@@ -141,7 +143,10 @@ export function Chat({
     enabled: !!selfhost && loaded,
     threadId: thread.id,
     running,
-    reconnect: () => void copilotkit.connectAgent({ agent }).catch(() => {}),
+    reconnect: () =>
+      void replayOnto(agent, () => copilotkit.connectAgent({ agent })).catch(
+        () => {},
+      ),
   });
   const send = async (text: string) => {
     if (!text.trim() || running || !loaded || !contextReady || paused) return;
@@ -242,6 +247,7 @@ export function Chat({
               call.function.name === pageReviewTool.name,
           ))),
   );
+  const readMessageId = useReadReceipt(agent, visible, !!selfhost);
   return (
     <div className="live-chat">
       <header className="chat-persona">
@@ -345,6 +351,7 @@ export function Chat({
         <ChatTranscript
           messages={visible}
           calls={calls}
+          readMessageId={readMessageId}
           renderTools={(message) => (
             <CopilotChatToolCallsView
               message={message}

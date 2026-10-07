@@ -120,6 +120,7 @@ export function PageConversation({
           paused={paused}
           onSaved={onRefresh}
           onSchedule={() => onSchedule(thread.id)}
+          selfhost={workspace.setup.backend === 'selfhost'}
         />
       </aside>
     );

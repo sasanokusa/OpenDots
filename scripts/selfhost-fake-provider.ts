@@ -5,6 +5,8 @@
 // To exercise tools (with AGENT_HARNESS=sasacode too), put a marker in the
 // message: `[tool:list_authorized_spaces {}]` calls that tool, and
 // `[bash:df -h]` asks to run a shell command (which may need approval).
+// `[say:text]` adds text before those tool calls, as models often do.
+// `[wait:5]` holds the reply for five seconds, to watch the typing indicator.
 import { startFakeCommandCode } from '../tests/selfhost/fake-commandcode.js';
 
 const port = Number(process.env.FAKE_PROVIDER_PORT ?? 4399);
@@ -24,7 +26,7 @@ const lastUser = (messages: ChatMessage[]) =>
   text([...messages].reverse().find((m) => m.role === 'user')?.content);
 
 let calls = 0;
-fake.onChat((body) => {
+fake.onChat(async (body) => {
   const messages = (body.messages ?? []) as ChatMessage[];
   if (JSON.stringify(messages).includes('Write a title'))
     return {
@@ -38,10 +40,15 @@ fake.onChat((body) => {
       usage: { prompt_tokens: 150, completion_tokens: 30 },
     };
   const user = lastUser(messages);
+  const wait = /\[wait:(\d+)\]/.exec(user);
+  if (wait)
+    await new Promise((resolve) => setTimeout(resolve, Number(wait[1]) * 1000));
   const tool = /\[tool:(\w+)\s*(\{.*?\})?\]/.exec(user);
   const bash = /\[bash:([^\]]+)\]/.exec(user);
+  const say = /\[say:([^\]]+)\]/.exec(user);
   if (tool || bash)
     return {
+      ...(say && { content: say[1] }),
       toolCalls: [
         {
           id: `call_fake_${++calls}`,
