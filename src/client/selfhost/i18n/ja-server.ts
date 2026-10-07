@@ -198,6 +198,11 @@ export const entries: Record<string, string> = {
 
 // Most specific first: the first matching pattern wins.
 export const patterns: Pattern[] = [
+  [
+    /^The safety check judged this risky: (.+)$/s,
+    '安全チェックで危険と判断されました: $1',
+  ],
+  [/^The safety check failed: (.+)$/s, '安全チェックに失敗しました: $1'],
   [/^A permission rule asks first: (.+)\.$/s, '権限ルールで確認が必要です: $1'],
   [
     /^The path could not be checked: (.+)\.$/s,

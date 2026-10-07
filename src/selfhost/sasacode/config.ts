@@ -29,6 +29,8 @@ export const OPENDOTS_TOOLS = [
  * substitutions or redirections are never allowed (sasacode's rule matcher).
  */
 export const READ_ONLY_COMMANDS = [
+  'echo',
+  'echo *',
   'uptime',
   'uptime *',
   'uname *',
@@ -74,7 +76,15 @@ export const READ_ONLY_COMMANDS = [
   'ls *',
 ];
 
+export const PERMISSION_MODES = ['agent', 'edits', 'ask', 'auto'] as const;
+export type PermissionMode = (typeof PERMISSION_MODES)[number];
+
 export interface SasacodeConfigOptions {
+  /**
+   * sasacode's permission mode. `agent` (default): the model judges each call
+   * that no rule decides and only risky ones reach the owner.
+   */
+  mode?: PermissionMode;
   /** SASACODE_HOME for OpenDots' sasacode runs. */
   home: string;
   /** Port of the loopback internal server. */
@@ -137,7 +147,7 @@ export function sasacodeConfig(options: SasacodeConfigOptions) {
       },
     },
     permissions: {
-      mode: 'edits',
+      mode: options.mode ?? 'agent',
       allow: [
         ...OPENDOTS_TOOLS,
         ...READ_ONLY_COMMANDS.map((command) => `bash(${command})`),

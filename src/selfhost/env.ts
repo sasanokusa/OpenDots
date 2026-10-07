@@ -4,7 +4,11 @@ import { roles, turn } from './config/models.js';
 import { createSelfhostBackend, type SelfhostBackend } from './index.js';
 import { CommandCodeClient } from './llm/commandcode.js';
 import { createTurnPlanner } from './router/router.js';
-import { agentHarness, createSasacode } from './sasacode/index.js';
+import {
+  agentHarness,
+  createSasacode,
+  permissionMode,
+} from './sasacode/index.js';
 import { dirname, join, resolve } from 'node:path';
 import { chat } from '@tanstack/ai';
 import {
@@ -114,6 +118,7 @@ export function enableSelfhost(
         workRoot: env.SASACODE_WORKDIR?.trim() || join(dataDir, 'dots'),
         appDir: resolve('.'),
         approvals: backend.approvals,
+        mode: permissionMode(env),
       });
       backend.use(sasacode);
       config.selfhost.runHarness = (input) => sasacode.runHarness(input);

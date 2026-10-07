@@ -4,13 +4,26 @@ import type { ApprovalBroker } from '../approvals/broker.js';
 import type { CommandCodeClient } from '../llm/commandcode.js';
 import type { TurnPlanner } from '../router/router.js';
 import type { HarnessRunInput } from '../router/types.js';
-import { writeSasacodeConfig } from './config.js';
+import {
+  PERMISSION_MODES,
+  writeSasacodeConfig,
+  type PermissionMode,
+} from './config.js';
 import { createSasacodeHarness } from './harness.js';
 import { startInternalServer, type InternalServer } from './internal-server.js';
 import { RunRegistry } from './runs.js';
 import { SasacodeSessions } from './sessions.js';
 
 type Env = Record<string, string | undefined>;
+
+export function permissionMode(env: Env): PermissionMode {
+  const value = env.SASACODE_PERMISSION?.trim() || 'agent';
+  if (!(PERMISSION_MODES as readonly string[]).includes(value))
+    throw new Error(
+      `SASACODE_PERMISSION must be one of ${PERMISSION_MODES.join(', ')}.`,
+    );
+  return value as PermissionMode;
+}
 
 export function agentHarness(env: Env): 'builtin' | 'sasacode' {
   const value = env.AGENT_HARNESS?.trim() || 'builtin';
@@ -29,6 +42,7 @@ export interface SasacodeOptions {
   appDir: string;
   port?: number;
   approvals?: ApprovalBroker;
+  mode?: PermissionMode;
 }
 
 /**
@@ -76,6 +90,7 @@ export function createSasacode(options: SasacodeOptions) {
           port: server.port,
           appDir: options.appDir,
           homeDir: homedir(),
+          mode: options.mode,
         });
         markReady();
       } catch (error) {

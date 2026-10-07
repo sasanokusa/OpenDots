@@ -90,18 +90,20 @@ Dot Computerを使う場合は、`docs/COMPUTERS.md`に従ってsupervisorをDoc
 - ページ操作、承認カード、ワーカーへの委任、Sonnetへの相談は、同じ中継のMCPでsasacodeに渡します。Spaceの権限はアプリ側で確かめます。
 - 会話1つにsasacodeのセッション1つが対応します（`sh_sasacode_sessions`テーブル）。作業ディレクトリはDotごとです。
 
-| 変数               | 既定                                  | 内容                                                                    |
-| ------------------ | ------------------------------------- | ----------------------------------------------------------------------- |
-| `AGENT_HARNESS`    | `builtin`                             | `sasacode`で切り替えます                                                |
-| `SASACODE_BIN`     | `sasacode`                            | 実行ファイルのパス                                                      |
-| `SASACODE_HOME`    | `DATABASE_PATH`と同じ場所の`sasacode` | 設定とセッションの置き場所です。`config.json`は起動のたびに書き直します |
-| `SASACODE_WORKDIR` | `DATABASE_PATH`と同じ場所の`dots`     | Dotごとの作業ディレクトリの親です                                       |
+| 変数                  | 既定                                  | 内容                                                                    |
+| --------------------- | ------------------------------------- | ----------------------------------------------------------------------- |
+| `AGENT_HARNESS`       | `builtin`                             | `sasacode`で切り替えます                                                |
+| `SASACODE_BIN`        | `sasacode`                            | 実行ファイルのパス                                                      |
+| `SASACODE_HOME`       | `DATABASE_PATH`と同じ場所の`sasacode` | 設定とセッションの置き場所です。`config.json`は起動のたびに書き直します |
+| `SASACODE_WORKDIR`    | `DATABASE_PATH`と同じ場所の`dots`     | Dotごとの作業ディレクトリの親です                                       |
+| `SASACODE_PERMISSION` | `agent`                               | 確認のしかたです（下を参照）                                            |
 
 シェルとファイルの扱いは次のとおりです。
 
 - bashはサーバーの上で直接、アプリと同じユーザーで動きます。sudoは使えません。
 - 読むだけのコマンド（`uptime`、`df`、`free`、`systemctl status`、`journalctl -u`、`docker ps`など）は確認なしで動きます。一覧は`src/selfhost/sasacode/config.ts`の`READ_ONLY_COMMANDS`です。`;`や`|`でつないだコマンドは、全部が一覧に当てはまるときだけ通ります。
-- それ以外は承認を求めます。Webの会話画面に出るカードか、DiscordのDMに届くボタンで「許可」か「拒否」を選びます。先に答えたほうが有効で、5分答えがなければ拒否になります。
+- それ以外は、既定ではsasacodeのagentモードでモデルが1件ずつ安全かを判定し、危ないと判断したものだけ承認を求めます。Webの会話画面に出るカードか、DiscordのDMに届くボタンで「許可」か「拒否」を選びます。先に答えたほうが有効で、5分答えがなければ拒否になります。
+- 判定のしかたは`SASACODE_PERMISSION`で変えられます。`agent`（既定、モデルが判定）、`edits`（作業ディレクトリ内の読み書きだけ確認なし、ほかはすべて承認）、`ask`（すべて承認）、`auto`（禁止ルール以外はすべて実行）です。
 - `.env`、`~/.ssh`、`~/.config`、トークンやAPIキーを含むコマンドは、読み書きとも禁止しています。
 
 saserverでは、sasacodeをGitHubのmainからビルドして使います。Bunはsasacodeの`packageManager`と同じ1.4.2を、GitHubのリリースから`SHASUMS256.txt`で検証して`/mnt/ssd/opendots/bun`に置いています。

@@ -54,6 +54,10 @@ export function explainReason(reason: string): string {
   if (rule) return `A permission rule asks first: ${rule[1]}.`;
   const path = /^cannot resolve (.+)$/s.exec(reason);
   if (path) return `The path could not be checked: ${path[1]}.`;
+  const risky = /^agent judged risky: (.+)$/s.exec(reason);
+  if (risky) return `The safety check judged this risky: ${risky[1]}`;
+  const failed = /^judge failed: (.+)$/s.exec(reason);
+  if (failed) return `The safety check failed: ${failed[1]}`;
   return reason;
 }
 
@@ -65,6 +69,10 @@ export function japaneseReason(reason: string): string {
   if (rule) return `権限ルールで確認が必要です: ${rule[1]}`;
   const path = /^The path could not be checked: (.+)\.$/s.exec(reason);
   if (path) return `パスを確認できませんでした: ${path[1]}`;
+  const risky = /^The safety check judged this risky: (.+)$/s.exec(reason);
+  if (risky) return `安全チェックで危険と判断されました: ${risky[1]}`;
+  const failed = /^The safety check failed: (.+)$/s.exec(reason);
+  if (failed) return `安全チェックに失敗しました: ${failed[1]}`;
   return reason;
 }
 

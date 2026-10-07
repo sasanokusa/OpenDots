@@ -6,6 +6,10 @@ import { EventType } from '@ag-ui/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { prices, roles } from '../../src/selfhost/config/models.js';
 import {
+  explainReason,
+  japaneseReason,
+} from '../../src/selfhost/approvals/broker.js';
+import {
   OPENDOTS_TOOLS,
   PROVIDER,
   READ_ONLY_COMMANDS,
@@ -18,7 +22,10 @@ import {
   environmentNote,
   turnPrompt,
 } from '../../src/selfhost/sasacode/harness.js';
-import { agentHarness } from '../../src/selfhost/sasacode/index.js';
+import {
+  agentHarness,
+  permissionMode,
+} from '../../src/selfhost/sasacode/index.js';
 import { RunRegistry, roleForModel } from '../../src/selfhost/sasacode/runs.js';
 import { SasacodeSessions } from '../../src/selfhost/sasacode/sessions.js';
 import type { SasacodeLine } from '../../src/selfhost/sasacode/events.js';
@@ -543,8 +550,11 @@ describe('sasacodeConfig', () => {
     }
   });
 
-  it('asks before editing and keeps secrets out of reach', () => {
-    expect(config.permissions.mode).toBe('edits');
+  it('lets the model judge by default and keeps secrets out of reach', () => {
+    expect(config.permissions.mode).toBe('agent');
+    expect(sasacodeConfig({ ...options, mode: 'edits' }).permissions.mode).toBe(
+      'edits',
+    );
     const { deny } = config.permissions;
     for (const verb of ['read', 'write', 'edit']) {
       expect(deny).toContain(`${verb}(/srv/opendots/.env*)`);
@@ -661,6 +671,21 @@ describe('agentHarness', () => {
   });
 });
 
+describe('permissionMode', () => {
+  it('defaults to agent and accepts the sasacode modes', () => {
+    expect(permissionMode({})).toBe('agent');
+    expect(permissionMode({ SASACODE_PERMISSION: ' edits ' })).toBe('edits');
+    expect(permissionMode({ SASACODE_PERMISSION: 'ask' })).toBe('ask');
+    expect(permissionMode({ SASACODE_PERMISSION: 'auto' })).toBe('auto');
+  });
+
+  it('rejects anything else', () => {
+    expect(() => permissionMode({ SASACODE_PERMISSION: 'yolo' })).toThrow(
+      'SASACODE_PERMISSION must be one of agent, edits, ask, auto.',
+    );
+  });
+});
+
 describe('roleForModel', () => {
   it('allows the model of each turn role', () => {
     const run = sasacodeRun({ role: 'worker', model: roles.worker.model });
@@ -763,5 +788,36 @@ describe('SasacodeSessions', () => {
       sessionId: 's',
     });
     expect(new SasacodeSessions(db).get('t')?.session_id).toBe('s');
+  });
+});
+
+describe('approval reasons', () => {
+  it('turns sasacode reasons into sentences for the web and Discord', () => {
+    const cases: [string, string, string][] = [
+      [
+        'mode edits',
+        'Not on the list of actions that run without asking.',
+        '確認なしで実行できる操作の一覧に入っていません。',
+      ],
+      [
+        'agent judged risky: deletes files outside the workspace',
+        'The safety check judged this risky: deletes files outside the workspace',
+        '安全チェックで危険と判断されました: deletes files outside the workspace',
+      ],
+      [
+        'judge failed: timeout',
+        'The safety check failed: timeout',
+        '安全チェックに失敗しました: timeout',
+      ],
+      [
+        'rule ask: bash(git push*)',
+        'A permission rule asks first: bash(git push*).',
+        '権限ルールで確認が必要です: bash(git push*)',
+      ],
+    ];
+    for (const [raw, english, japanese] of cases) {
+      expect(explainReason(raw)).toBe(english);
+      expect(japaneseReason(english)).toBe(japanese);
+    }
   });
 });

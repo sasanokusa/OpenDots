@@ -58,7 +58,7 @@ const NO_APPROVER =
 const TRANSCRIPT_MAX_CHARS = 20_000;
 
 export function environmentNote(cwd: string): string {
-  return `Environment: you run inside sasacode on the owner's home server (saserver) as an unprivileged user without sudo. Your working directory is ${cwd}; files you create stay there. The bash tool runs on the server itself. Read-only status commands (uptime, df, free, systemctl status, journalctl, docker ps and similar) run immediately; anything else needs the owner's approval and may be refused. OpenDots tools (Space pages, the review card, delegation, the advisor) come from the opendots MCP server. Never reveal secrets such as API keys, tokens or the contents of .env files.`;
+  return `Environment: you run inside sasacode on the owner's home server (saserver) as an unprivileged user without sudo. Your working directory is ${cwd}; files you create stay there. The bash tool runs on the server itself. Read-only status commands (uptime, df, free, systemctl status, journalctl, docker ps and similar) run immediately; other actions pass a safety check, and risky ones need the owner's approval and may be refused. OpenDots tools (Space pages, the review card, delegation, the advisor) come from the opendots MCP server. Never reveal secrets such as API keys, tokens or the contents of .env files.`;
 }
 
 type Part = { type?: string; text?: string };
