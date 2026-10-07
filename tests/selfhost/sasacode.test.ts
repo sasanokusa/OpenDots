@@ -548,7 +548,9 @@ describe('sasacodeConfig', () => {
     const { deny } = config.permissions;
     for (const verb of ['read', 'write', 'edit']) {
       expect(deny).toContain(`${verb}(/srv/opendots/.env*)`);
-      expect(deny).toContain(`${verb}(/srv/opendots/data/**)`);
+      expect(deny).toContain(`${verb}(/srv/opendots/data/*.sqlite*)`);
+      // The default Dot working directories live in data/dots; they must stay writable.
+      expect(deny).not.toContain(`${verb}(/srv/opendots/data/**)`);
       expect(deny).toContain(`${verb}(/home/sasa/.ssh/**)`);
       expect(deny).toContain(`${verb}(/home/sasa/.config/**)`);
       expect(deny).toContain(`${verb}(/data/sasacode/.env)`);

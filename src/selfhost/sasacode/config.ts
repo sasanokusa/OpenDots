@@ -91,7 +91,7 @@ export function sasacodeConfig(options: SasacodeConfigOptions) {
   const models = [roles.chat, roles.planner, roles.worker];
   const secret = [
     `${options.appDir}/.env*`,
-    `${options.appDir}/data/**`,
+    `${options.appDir}/data/*.sqlite*`,
     `${options.homeDir}/.ssh/**`,
     `${options.homeDir}/.config/**`,
     `${options.home}/.env`,
