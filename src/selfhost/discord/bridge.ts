@@ -1,6 +1,22 @@
 import type { DatabaseSync } from 'node:sqlite';
-import { ChannelType, Client, GatewayIntentBits, Partials } from 'discord.js';
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ChannelType,
+  Client,
+  GatewayIntentBits,
+  Partials,
+} from 'discord.js';
 import { safeFailure } from '../../server/slack-channel.js';
+import {
+  japaneseReason,
+  type ApprovalAnswer,
+  type ApprovalBroker,
+  type ApprovalChannel,
+  type PendingApproval,
+} from '../approvals/broker.js';
+import type { SelfhostEvents } from '../threads/events.js';
 import { splitMessage } from './format.js';
 
 const THREAD_TITLE = 'Discord DM';
@@ -24,7 +40,24 @@ const TEXT = {
     '/help: この一覧を表示する',
     'それ以外のメッセージはそのままエージェントに渡します。',
   ].join('\n'),
+  approvalTitle: '**確認が必要です**',
+  approvalReason: '理由',
+  approvalThread: '会話',
+  approvalAllow: '許可',
+  approvalDeny: '拒否',
+  approved: '→ 許可しました',
+  denied: '→ 拒否しました',
+  closed: 'この承認はすでに締め切られています',
+  webAllowed: '→ Webで許可されました',
+  webDenied: '→ Webで拒否されました',
+  timedOut: '→ 時間切れで拒否しました',
+  cancelled: '→ 実行が止まったため取り消しました',
 };
+
+const APPROVAL_PREFIX = 'opendots-approval';
+const APPROVAL_ID = new RegExp(`^${APPROVAL_PREFIX}:([^:]+):(allow|deny)$`);
+const REASON_MAX = 300;
+const TITLE_MAX = 100;
 
 export interface DiscordChannelLike {
   type: number;
@@ -39,11 +72,40 @@ export interface DiscordMessageLike {
   content: string;
 }
 
+type ApprovalButtons = ActionRowBuilder<ButtonBuilder>;
+
+/** A message the bot sent; approvals edit it once they are settled. */
+export interface DiscordSentMessageLike {
+  edit(options: { content: string; components: [] }): Promise<unknown>;
+}
+
+/** A Discord user the bot can open a DM with. */
+export interface DiscordUserLike {
+  send(options: {
+    content: string;
+    components: ApprovalButtons[];
+  }): Promise<DiscordSentMessageLike>;
+}
+
+/** What the bridge reads from a discord.js `Interaction`. */
+export interface DiscordInteractionLike {
+  user: { id: string };
+  isButton(): boolean;
+  /** Only buttons carry these; check `isButton()` first. */
+  customId: string;
+  message?: { content: string };
+  update(options: { content: string; components: [] }): Promise<unknown>;
+}
+
 /** The slice of discord.js `Client` the bridge relies on. */
 export interface DiscordClientLike {
   on(
     event: 'messageCreate',
     listener: (message: DiscordMessageLike) => void,
+  ): unknown;
+  on(
+    event: 'interactionCreate',
+    listener: (interaction: DiscordInteractionLike) => void,
   ): unknown;
   on(event: 'error', listener: (error: Error) => void): unknown;
   once(event: 'clientReady', listener: () => void): unknown;
@@ -51,8 +113,13 @@ export interface DiscordClientLike {
     event: 'messageCreate',
     listener: (message: DiscordMessageLike) => void,
   ): unknown;
+  off(
+    event: 'interactionCreate',
+    listener: (interaction: DiscordInteractionLike) => void,
+  ): unknown;
   off(event: 'error', listener: (error: Error) => void): unknown;
   off(event: 'clientReady', listener: () => void): unknown;
+  users: { fetch(userId: string): Promise<DiscordUserLike> };
   login(token: string): Promise<unknown>;
   destroy(): Promise<void> | void;
 }
@@ -74,6 +141,11 @@ export interface DiscordBridgeOptions {
   paused: () => boolean;
   /** Web app URL, returned by `/web` and for approvals. */
   publicUrl?: string;
+  /** With `events`, owner approvals are sent as DMs with buttons. */
+  approvals?: ApprovalBroker;
+  events?: SelfhostEvents;
+  /** Title of a conversation, shown in approval DMs. */
+  threadTitle?: (threadId: string) => string | undefined;
   client?: DiscordClientLike;
   now?: () => number;
 }
@@ -82,6 +154,45 @@ interface InFlight {
   controller: AbortController;
   stopTyping: () => void;
 }
+
+interface SentApproval {
+  message: DiscordSentMessageLike;
+  content: string;
+}
+
+/** Keeps the text of a code block from ending it early. */
+function codeSafe(text: string): string {
+  // Discord closes a fenced block at the first run of three backticks, and a
+  // backslash does not escape inside it. A zero-width space is invisible.
+  return text.replace(/`/g, '`\u200b');
+}
+
+function oneLine(text: string, max: number): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
+}
+
+function approvalButtons(id: string): ApprovalButtons {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${APPROVAL_PREFIX}:${id}:allow`)
+      .setLabel(TEXT.approvalAllow)
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`${APPROVAL_PREFIX}:${id}:deny`)
+      .setLabel(TEXT.approvalDeny)
+      .setStyle(ButtonStyle.Danger),
+  );
+}
+
+const outcomeText = (
+  decision: ApprovalAnswer,
+  by: Exclude<ApprovalChannel, 'discord'>,
+): string => {
+  if (by === 'timeout') return TEXT.timedOut;
+  if (by === 'cancelled') return TEXT.cancelled;
+  return decision === 'allow' ? TEXT.webAllowed : TEXT.webDenied;
+};
 
 function createDefaultClient(): DiscordClientLike {
   // DMs arrive without the privileged MessageContent intent.
@@ -94,6 +205,12 @@ function createDefaultClient(): DiscordClientLike {
 export class DiscordBridge {
   private client: DiscordClientLike;
   private inFlight = new Map<string, InFlight>();
+  /** Approval DMs by approval id; the send may still be in flight. */
+  private approvalMessages = new Map<
+    string,
+    Promise<SentApproval | undefined>
+  >();
+  private unsubscribe: (() => void) | undefined;
   private started = false;
   private stopped = false;
   private now: () => number;
@@ -112,6 +229,7 @@ export class DiscordBridge {
     this.stopped = false;
     const { client } = this;
     client.on('messageCreate', this.onMessage);
+    client.on('interactionCreate', this.onInteraction);
     client.on('error', this.onError);
     let timer: ReturnType<typeof setTimeout> | undefined;
     let onReady: (() => void) | undefined;
@@ -141,6 +259,7 @@ export class DiscordBridge {
       clearTimeout(timer);
       if (onReady) client.off('clientReady', onReady);
     }
+    if (!this.stopped) this.watchApprovals();
   }
 
   async stop(): Promise<void> {
@@ -154,13 +273,121 @@ export class DiscordBridge {
       run.stopTyping();
       run.controller.abort();
     }
+    this.unsubscribe?.();
+    this.unsubscribe = undefined;
+    this.approvalMessages.clear();
     this.client.off('messageCreate', this.onMessage);
+    this.client.off('interactionCreate', this.onInteraction);
     this.client.off('error', this.onError);
     try {
       await this.client.destroy();
     } catch (error) {
       console.error('Discord client shutdown failed:', safeFailure(error));
     }
+  }
+
+  /** Sends every approval request, from any conversation, to the owner's DM. */
+  private watchApprovals() {
+    const { approvals, events } = this.options;
+    if (!approvals || !events || this.unsubscribe) return;
+    this.unsubscribe = events.subscribe((event) => {
+      if (event.type === 'approval_requested') this.announce(event.approval);
+      else if (event.type === 'approval_resolved' && event.by !== 'discord')
+        this.settled(event.id, event.decision, event.by);
+      else if (event.type === 'approval_resolved')
+        this.approvalMessages.delete(event.id);
+    });
+    // Requests opened before Discord was ready still need an answer.
+    for (const approval of approvals.pending()) this.announce(approval);
+  }
+
+  private announce(approval: PendingApproval) {
+    if (this.stopped || this.approvalMessages.has(approval.id)) return;
+    const content = this.approvalText(approval);
+    const sent = this.client.users
+      .fetch(this.options.ownerUserId)
+      .then((owner) =>
+        owner.send({ content, components: [approvalButtons(approval.id)] }),
+      )
+      .then((message): SentApproval => ({ message, content }))
+      .catch((error: unknown) => {
+        console.error('Discord approval request failed:', safeFailure(error));
+        this.approvalMessages.delete(approval.id);
+        return undefined;
+      });
+    this.approvalMessages.set(approval.id, sent);
+  }
+
+  private approvalText(approval: PendingApproval): string {
+    const title = this.options.threadTitle?.(approval.threadId);
+    const minutes = Math.max(
+      1,
+      Math.round((approval.expiresAt - approval.createdAt) / 60_000),
+    );
+    const reason = oneLine(japaneseReason(approval.reason), REASON_MAX);
+    return [
+      TEXT.approvalTitle,
+      '```',
+      codeSafe(approval.summary),
+      '```',
+      ...(reason ? [`${TEXT.approvalReason}: ${reason}`] : []),
+      `${TEXT.approvalThread}: ${oneLine(title || approval.threadId, TITLE_MAX)}`,
+      `${minutes}分以内に答えがないと、自動で拒否されます。`,
+    ].join('\n');
+  }
+
+  /** The request closed somewhere other than Discord: take the buttons away. */
+  private settled(
+    id: string,
+    decision: ApprovalAnswer,
+    by: Exclude<ApprovalChannel, 'discord'>,
+  ) {
+    const entry = this.approvalMessages.get(id);
+    this.approvalMessages.delete(id);
+    void entry
+      ?.then((sent) =>
+        sent?.message.edit({
+          content: `${sent.content}\n\n${outcomeText(decision, by)}`,
+          components: [],
+        }),
+      )
+      .catch((error: unknown) => {
+        console.error('Discord approval update failed:', safeFailure(error));
+      });
+  }
+
+  private onInteraction = (interaction: DiscordInteractionLike) => {
+    this.handleInteraction(interaction).catch((error: unknown) => {
+      console.error('Discord interaction handling failed:', safeFailure(error));
+    });
+  };
+
+  private async handleInteraction(
+    interaction: DiscordInteractionLike,
+  ): Promise<void> {
+    const { approvals } = this.options;
+    if (this.stopped || !approvals) return;
+    if (interaction.user.id !== this.options.ownerUserId) return;
+    if (!interaction.isButton()) return;
+    const match = APPROVAL_ID.exec(interaction.customId);
+    if (!match) return;
+    const id = match[1]!;
+    const decision = match[2] as ApprovalAnswer;
+
+    // Resolving forgets the message, so look it up first.
+    const stored = this.approvalMessages.get(id);
+    const answered = approvals.resolve(id, decision, 'discord');
+    const original =
+      (await stored)?.content ?? interaction.message?.content ?? '';
+    const outcome = answered
+      ? decision === 'allow'
+        ? TEXT.approved
+        : TEXT.denied
+      : TEXT.closed;
+    await interaction.update({
+      content: `${original}\n\n${outcome}`,
+      components: [],
+    });
   }
 
   private onError = (error: Error) => {

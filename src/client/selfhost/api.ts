@@ -5,9 +5,19 @@ import type {
   UsageObservation,
   UsageSummary,
 } from '../../selfhost/usage/meter';
+import type {
+  ApprovalAnswer,
+  PendingApproval,
+} from '../../selfhost/approvals/broker';
 import { api } from '../api';
 
-export type { PolicyFlags, UsageObservation, UsageSummary };
+export type {
+  ApprovalAnswer,
+  PendingApproval,
+  PolicyFlags,
+  UsageObservation,
+  UsageSummary,
+};
 
 export interface SelfhostThread {
   id: string;
@@ -92,4 +102,30 @@ export async function putSelfhostObserved(
     body,
   );
   return observations;
+}
+
+/** The owner approvals still waiting for an answer in one conversation. */
+export async function listSelfhostApprovals(
+  threadId: string,
+  signal?: AbortSignal,
+): Promise<PendingApproval[]> {
+  const { approvals } = await api<{ approvals: PendingApproval[] }>(
+    `/selfhost/approvals?threadId=${encodeURIComponent(threadId)}`,
+    'GET',
+    undefined,
+    signal,
+  );
+  return approvals;
+}
+
+/** Rejects with an ApiError; status 409 means the request already closed. */
+export async function decideSelfhostApproval(
+  id: string,
+  decision: ApprovalAnswer,
+): Promise<void> {
+  await api<{ ok: true }>(
+    `/selfhost/approvals/${encodeURIComponent(id)}`,
+    'POST',
+    { decision },
+  );
 }

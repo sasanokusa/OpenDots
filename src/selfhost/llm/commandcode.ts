@@ -214,6 +214,27 @@ export class CommandCodeClient {
     };
   }
 
+  /**
+   * Relays a request body unchanged (used by the sasacode LLM relay). The
+   * response, streaming or not, is returned as is; usage is still recorded.
+   */
+  forward(
+    path: string,
+    body: string,
+    ctx: CallContext,
+    signal?: AbortSignal,
+  ): Promise<Response> {
+    return this.#metered(ctx)(`${this.baseURL}${path}`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${this.#apiKey}`,
+        'content-type': 'application/json',
+      },
+      body,
+      signal,
+    });
+  }
+
   #metered(ctx: CallContext | (() => CallContext)): typeof fetch {
     return meteredFetch(ctx, this.#recorder, {
       baseFetch: this.#fetch,

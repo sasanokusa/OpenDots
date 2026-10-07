@@ -6,11 +6,28 @@
 // and is closed when the last one unsubscribes.
 import { useEffect, useRef } from 'react';
 import { authHeaders } from '../api';
+import type {
+  ApprovalAnswer,
+  ApprovalChannel,
+  PendingApproval,
+} from '../../selfhost/approvals/broker';
+
+export type { ApprovalAnswer, ApprovalChannel, PendingApproval };
 
 export type SelfhostClientEvent =
   | { type: 'thread_updated'; threadId: string }
   | { type: 'run_finished'; threadId: string; runId: string }
   | { type: 'usage_updated' }
+  /** The agent wants to run something and waits for the owner's answer. */
+  | { type: 'approval_requested'; approval: PendingApproval }
+  /** Answered (here, in Discord), expired or cancelled; the card can go. */
+  | {
+      type: 'approval_resolved';
+      id: string;
+      threadId: string;
+      decision: ApprovalAnswer;
+      by: ApprovalChannel;
+    }
   /**
    * The stream (re)connected. Events may have been missed while it was down, so
    * listeners that mirror server state should refetch.
@@ -91,6 +108,35 @@ export class SseParser {
   }
 }
 
+const isString = (value: unknown): value is string => typeof value === 'string';
+const isNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+
+function toApproval(value: unknown): PendingApproval | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const { id, threadId, dotId, tool, summary, reason, createdAt, expiresAt } =
+    value as Record<string, unknown>;
+  if (
+    !isString(id) ||
+    !isString(threadId) ||
+    !isString(dotId) ||
+    !isString(tool) ||
+    !isString(summary) ||
+    !isString(reason) ||
+    !isNumber(createdAt) ||
+    !isNumber(expiresAt)
+  )
+    return undefined;
+  return { id, threadId, dotId, tool, summary, reason, createdAt, expiresAt };
+}
+
+const APPROVAL_CHANNELS: readonly string[] = [
+  'web',
+  'discord',
+  'timeout',
+  'cancelled',
+];
+
 /** Turns a frame into a typed event; `ready`, `ping` and unknown frames are not events. */
 export function toClientEvent(
   frame: SseFrame,
@@ -99,7 +145,9 @@ export function toClientEvent(
   if (
     frame.event !== 'thread_updated' &&
     frame.event !== 'run_finished' &&
-    frame.event !== 'usage_updated'
+    frame.event !== 'usage_updated' &&
+    frame.event !== 'approval_requested' &&
+    frame.event !== 'approval_resolved'
   )
     return undefined;
   let payload: unknown;
@@ -109,6 +157,28 @@ export function toClientEvent(
     return undefined;
   }
   if (typeof payload !== 'object' || payload === null) return undefined;
+  if (frame.event === 'approval_requested') {
+    const approval = toApproval((payload as Record<string, unknown>).approval);
+    return approval && { type: 'approval_requested', approval };
+  }
+  if (frame.event === 'approval_resolved') {
+    const { id, threadId, decision, by } = payload as Record<string, unknown>;
+    if (
+      !isString(id) ||
+      !isString(threadId) ||
+      (decision !== 'allow' && decision !== 'deny') ||
+      !isString(by) ||
+      !APPROVAL_CHANNELS.includes(by)
+    )
+      return undefined;
+    return {
+      type: 'approval_resolved',
+      id,
+      threadId,
+      decision,
+      by: by as ApprovalChannel,
+    };
+  }
   const { threadId, runId } = payload as Record<string, unknown>;
   if (frame.event === 'usage_updated') return { type: 'usage_updated' };
   if (typeof threadId !== 'string') return undefined;

@@ -182,6 +182,7 @@ export function createTurnPlanner(deps: TurnPlannerDeps): TurnPlanner {
     if (!deps.routerEnabled)
       return {
         role: 'chat',
+        model: deps.singleModel,
         adapter: adapterFor('chat', input, deps.singleModel),
         tools: input.baseTools,
       };
@@ -227,6 +228,7 @@ export function createTurnPlanner(deps: TurnPlannerDeps): TurnPlanner {
     const role = decision.role;
     const common = {
       role,
+      model: roles[role].model,
       adapter: adapterFor(role, input),
       maxOutputTokens: roles[role].maxOutputTokens,
       maxIterations: roles[role].maxIterations,

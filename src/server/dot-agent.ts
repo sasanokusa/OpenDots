@@ -357,6 +357,19 @@ export class DotAgent extends AbstractAgent {
             });
           },
         });
+        const harness = this.config.selfhost?.runHarness;
+        if (harness)
+          this.inner = new BuiltInAgent({
+            type: 'custom',
+            factory: (ctx) =>
+              harness({
+                dotId: dot.id,
+                ctx,
+                check,
+                baseTools: serverTools,
+                systemPrompt: prompt,
+              }),
+          });
         subscription = this.inner
           .run({
             ...input,

@@ -4558,3 +4558,75 @@ html:lang(ja) .template-app .thread-summary small {
   padding: 0;
   border-radius: 0;
 }
+
+/* selfhost: owner approvals */
+.approval-card {
+  flex: 0 0 auto;
+  margin: 10px 0;
+  border: 1px solid #e6d3a3;
+  border-radius: 14px;
+  background: var(--selfhost-warn-soft);
+  overflow: hidden;
+}
+.approval-card header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 11px 15px 0;
+  font-size: 12px;
+  color: #8a5a12;
+}
+.approval-card header span {
+  margin-left: auto;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--selfhost-warn);
+}
+.approval-summary {
+  margin: 9px 15px 0;
+  padding: 9px 11px;
+  max-height: 150px;
+  overflow: auto;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #efe3c3;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.approval-reason {
+  margin: 8px 15px 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #5b4a25;
+  overflow-wrap: anywhere;
+}
+.approval-reason span {
+  margin-right: 4px;
+  font-size: 11px;
+  color: var(--selfhost-warn);
+}
+.approval-card footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 11px 15px 13px;
+}
+.approval-card footer button {
+  padding: 7px 18px;
+  font-size: 12px;
+}
+.approval-card footer small {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--selfhost-over);
+}
+@media (max-width: 700px) {
+  .approval-card footer button {
+    padding: 10px 22px;
+    font-size: 13px;
+  }
+}

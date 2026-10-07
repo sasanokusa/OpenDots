@@ -1,7 +1,21 @@
+import type {
+  ApprovalAnswer,
+  ApprovalChannel,
+  PendingApproval,
+} from '../approvals/broker.js';
+
 export type SelfhostEvent =
   | { type: 'thread_updated'; threadId: string }
   | { type: 'run_finished'; threadId: string; runId: string }
-  | { type: 'usage_updated' };
+  | { type: 'usage_updated' }
+  | { type: 'approval_requested'; approval: PendingApproval }
+  | {
+      type: 'approval_resolved';
+      id: string;
+      threadId: string;
+      decision: ApprovalAnswer;
+      by: ApprovalChannel;
+    };
 
 /** In-process fan-out for the `/api/selfhost/events` stream. */
 export class SelfhostEvents {

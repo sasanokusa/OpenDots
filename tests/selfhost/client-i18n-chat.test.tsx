@@ -403,6 +403,7 @@ describe('catalog coverage', () => {
     'ComputerPanel.tsx',
     'ComputerToolCard.tsx',
     'chat-composer.ts',
+    'selfhost/ApprovalCard.tsx',
   ];
   // Keys deliberately left English. Empty: every wrapped string is translated.
   const intentionallyEnglish = new Set<string>();

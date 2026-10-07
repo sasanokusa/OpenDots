@@ -4,6 +4,8 @@ import { roles, turn } from './config/models.js';
 import { createSelfhostBackend, type SelfhostBackend } from './index.js';
 import { CommandCodeClient } from './llm/commandcode.js';
 import { createTurnPlanner } from './router/router.js';
+import { agentHarness, createSasacode } from './sasacode/index.js';
+import { dirname, join, resolve } from 'node:path';
 import { chat } from '@tanstack/ai';
 import {
   discordConfigFromEnv,
@@ -68,6 +70,7 @@ export function enableSelfhost(
     config.baseUrl = env.COMMAND_CODE_BASE_URL?.trim() || COMMAND_CODE_BASE_URL;
   }
   const routerEnabled = modelRouterEnabled(env);
+  const harness = agentHarness(env);
   if (routerEnabled) config.model = roles.chat.model;
   const monthStartDay = positiveInt(env, 'USAGE_MONTH_START_DAY', 1);
   if (monthStartDay > 31)
@@ -88,7 +91,7 @@ export function enableSelfhost(
       recorder: backend.meter,
     });
     const singleModel = config.model;
-    config.selfhost.planTurn = createTurnPlanner({
+    const planTurn = createTurnPlanner({
       client,
       meter: backend.meter,
       db: backend.db,
@@ -96,6 +99,25 @@ export function enableSelfhost(
       singleModel,
       log: backend.decisions,
     });
+    config.selfhost.planTurn = planTurn;
+    if (harness === 'sasacode') {
+      const dataDir =
+        deps.databasePath === ':memory:'
+          ? resolve('data')
+          : dirname(resolve(deps.databasePath));
+      const sasacode = createSasacode({
+        db: backend.db,
+        client,
+        planTurn,
+        binary: env.SASACODE_BIN?.trim() || 'sasacode',
+        home: env.SASACODE_HOME?.trim() || join(dataDir, 'sasacode'),
+        workRoot: env.SASACODE_WORKDIR?.trim() || join(dataDir, 'dots'),
+        appDir: resolve('.'),
+        approvals: backend.approvals,
+      });
+      backend.use(sasacode);
+      config.selfhost.runHarness = (input) => sasacode.runHarness(input);
+    }
     backend.threads.setNamer((user, assistant) =>
       chat({
         adapter: client.chatAdapter({ role: 'chat', model: singleModel }),

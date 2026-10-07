@@ -156,6 +156,12 @@ export const entries: Record<string, string> = {
   'OpenDots could not complete this request. Please check the app and try again.':
     'OpenDotsがこのリクエストを完了できませんでした。アプリを確認して、もう一度お試しください。',
   'Thread already running': 'この会話はすでに実行中です。',
+  'decision must be allow or deny.':
+    '承認の答えは allow か deny で指定します。',
+  'Not on the list of actions that run without asking.':
+    '確認なしで実行できる操作の一覧に入っていません。',
+  'This approval request has already closed.':
+    'この承認リクエストはすでに締め切られています。',
   'Stop the running turn before removing its history.':
     '履歴を削除する前に、実行中のターンを停止します。',
   'The worker returned no output.': 'ワーカーが出力を返しませんでした。',
@@ -192,6 +198,11 @@ export const entries: Record<string, string> = {
 
 // Most specific first: the first matching pattern wins.
 export const patterns: Pattern[] = [
+  [/^A permission rule asks first: (.+)\.$/s, '権限ルールで確認が必要です: $1'],
+  [
+    /^The path could not be checked: (.+)\.$/s,
+    'パスを確認できませんでした: $1',
+  ],
   [/^Request failed \((\d+)\)\.$/, 'リクエストに失敗しました（$1）。'],
   [
     /^Setup required: (.+)\. Conversations require CopilotKit Intelligence\.$/,

@@ -23,6 +23,8 @@ class FakeClient extends EventEmitter implements DiscordClientLike {
   /** Emit `clientReady` right after login unless a test wants to hold it back. */
   readyOnLogin = true;
   loginError: Error | undefined;
+  /** Approval DMs are covered in discord-approvals.test.ts. */
+  users = { fetch: () => Promise.reject(new Error('unused')) };
 
   login(token: string) {
     this.loginCalls.push(token);

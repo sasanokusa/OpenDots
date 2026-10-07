@@ -15,6 +15,7 @@ import { BacklogStore } from './backlog/store.js';
 import { BacklogRunner } from './backlog/runner.js';
 import { evaluatePolicy } from './usage/policy.js';
 import { DiscordBridge, type DiscordClientLike } from './discord/bridge.js';
+import { ApprovalBroker } from './approvals/broker.js';
 
 export interface DiscordSettings {
   token: string;
@@ -38,7 +39,7 @@ export interface SelfhostHost {
   paused(): boolean;
 }
 
-interface Service {
+export interface Service {
   start(): void | Promise<void>;
   stop(): void | Promise<void>;
 }
@@ -52,8 +53,12 @@ export interface SelfhostBackend {
   readonly meter: UsageMeter;
   readonly decisions: DecisionLog;
   readonly workspace: WorkspaceStore;
+  /** Owner approvals for sasacode tool calls (web and Discord). */
+  readonly approvals: ApprovalBroker;
   backlog?: { store: BacklogStore; runner: BacklogRunner };
   discord?: DiscordBridge;
+  /** Adds a service started by `start()` and stopped by `close()`. */
+  use(service: Service): void;
   /** Creates background services; call once the Platform exists. */
   attach(host: SelfhostHost): void;
   /** Starts background services; call once the server listens. */
@@ -107,8 +112,12 @@ export function createSelfhostBackend({
     events,
     meter,
     workspace,
+    approvals: new ApprovalBroker(events, { now }),
     decisions: new DecisionLog(db, now),
     pageThreads: pageThreads(threads, runner),
+    use(service) {
+      services.push(service);
+    },
     attach(host) {
       const store = new BacklogStore(db, now);
       const backlogRunner = new BacklogRunner({
@@ -130,6 +139,11 @@ export function createSelfhostBackend({
           dotId,
           db,
           publicUrl: discord.publicUrl,
+          approvals: backend.approvals,
+          events,
+          threadTitle: (threadId) =>
+            workspace.conversations().find((thread) => thread.id === threadId)
+              ?.title,
           client: discord.client,
           now,
           createThread: (id, title) => threads.create(id, title),

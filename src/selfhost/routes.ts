@@ -184,6 +184,28 @@ export function selfhostRoutes(
     backend.events.emit({ type: 'usage_updated' });
     return c.json({ observations: backend.meter.observations() });
   });
+  app.get('/approvals', (c) =>
+    c.json({
+      approvals: backend.approvals.pending(
+        c.req.query('threadId') || undefined,
+      ),
+    }),
+  );
+  app.post('/approvals/:id', async (c) => {
+    const body = z
+      .object({ decision: z.enum(['allow', 'deny']) })
+      .strict()
+      .safeParse(await c.req.json().catch(() => undefined));
+    if (!body.success)
+      return c.json({ error: 'decision must be allow or deny.' }, 400);
+    return backend.approvals.resolve(
+      c.req.param('id'),
+      body.data.decision,
+      'web',
+    )
+      ? c.json({ ok: true })
+      : c.json({ error: 'This approval request has already closed.' }, 409);
+  });
   app.get('/decisions', (c) => {
     const limit = Math.min(
       Math.max(Number(c.req.query('limit')) || 100, 1),

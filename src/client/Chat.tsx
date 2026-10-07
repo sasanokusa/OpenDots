@@ -31,6 +31,7 @@ import { Mascot } from './Mascot';
 import { useVoice } from './useVoice';
 import { CallView } from './CallView';
 import { shouldSubmitComposerOnKeyDown } from './chat-composer';
+import { ApprovalCard } from './selfhost/ApprovalCard';
 import { useReconnectOnRunFinished } from './selfhost/events';
 import { t, tMessage } from './selfhost/i18n';
 
@@ -392,6 +393,7 @@ export function Chat({
         dot={dot}
         voice={voice}
       />
+      {selfhost && <ApprovalCard threadId={thread.id} />}
       <form
         className="chat-composer"
         onSubmit={(e) => {

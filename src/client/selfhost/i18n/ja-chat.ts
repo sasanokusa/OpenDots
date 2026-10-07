@@ -255,6 +255,18 @@ export const entries: Record<string, string> = {
   'Stopping retains this Dot’s workspace files. Browser sessions may require signing in again.':
     '停止してもこのDotのワークスペースのファイルは残ります。ブラウザーのセッションは、再度ログインが必要になる場合があります。',
 
+  // selfhost/ApprovalCard.tsx
+  'Approval request': '承認リクエスト',
+  'Needs your approval': '確認が必要です',
+  'Expires in {time}': '残り{time}',
+  Expired: '期限切れ',
+  Reason: '理由',
+  Allow: '許可',
+  Deny: '拒否',
+  'Sending…': '送信中…',
+  'This request has already closed.': 'すでに締め切られました',
+  'Could not send your answer.': '回答を送信できませんでした。',
+
   // Messages from the browser, CopilotKit and the API client.
   'Failed to fetch': 'サーバーに接続できませんでした。',
   'Load failed': 'サーバーに接続できませんでした。',

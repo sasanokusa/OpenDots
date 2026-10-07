@@ -1,5 +1,9 @@
 import type { Message } from '@ag-ui/client';
-import type { ToolDefinition } from '@copilotkit/runtime/v2';
+import type { BaseEvent } from '@ag-ui/core';
+import type {
+  BuiltInAgentFactoryContext,
+  ToolDefinition,
+} from '@copilotkit/runtime/v2';
 import type { openaiCompatibleText } from '@tanstack/ai-openai/compatible';
 import type { RoleName } from '../config/models.js';
 
@@ -22,6 +26,8 @@ export interface TurnPlanInput {
 
 export interface TurnPlan {
   role: RoleName;
+  /** CommandCode model id for this role, e.g. `xiaomi/mimo-v2.6-flash`. */
+  model: string;
   adapter: ChatAdapter;
   tools: ToolDefinition[];
   systemPromptSuffix?: string;
@@ -29,8 +35,19 @@ export interface TurnPlan {
   maxIterations?: number;
 }
 
+/** What DotAgent hands an external harness for one run. */
+export interface HarnessRunInput {
+  dotId: string;
+  ctx: BuiltInAgentFactoryContext;
+  check: () => void;
+  baseTools: ToolDefinition[];
+  systemPrompt: string;
+}
+
 /** Hooks DotAgent reads from `PlatformConfig.selfhost`. */
 export interface SelfhostAgentHooks {
   turnTimeLimitMs: number;
   planTurn?: (input: TurnPlanInput) => Promise<TurnPlan>;
+  /** When set, this drives the turn (sasacode) instead of TanStack AI. */
+  runHarness?: (input: HarnessRunInput) => AsyncIterable<BaseEvent>;
 }

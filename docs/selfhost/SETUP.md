@@ -81,6 +81,38 @@ Dot Computerを使う場合は、`docs/COMPUTERS.md`に従ってsupervisorをDoc
 - `/plan 依頼`: Jevを呼ばずにplannerで受けます。
 - `/escalate 依頼`: plannerで受け、最初に`ask_advisor`でSonnetに相談させます。この最初の相談は、5時間枠の一時停止、月$8到達による自動停止、1日3回の上限を無視します。1ターン2回までの制限と、Sonnetが429でクールダウン中の断りは有効です。
 
+## sasacodeをハーネスにする
+
+`.env`で`AGENT_HARNESS=sasacode`にすると、Dotの会話ループを[sasacode](https://github.com/sasanokusa/sasacode)が受け持ちます。既定の`builtin`に戻せば、これまでのTanStack AIの仕組みに戻ります。
+
+- 1回の発言ごとに`sasacode -p … --output jsonl --control stdio`を起動し、その出力を画面に流します。Web、Discord、定期タスク、バックログのどれから来た発言も同じです。
+- sasacodeのモデル呼び出しは、アプリが127.0.0.1だけで開く中継を通ってCommandCodeに届きます。使用量の記録と枠のポリシーはこれまでどおり効き、CommandCodeのキーはsasacodeに渡りません。
+- ページ操作、承認カード、ワーカーへの委任、Sonnetへの相談は、同じ中継のMCPでsasacodeに渡します。Spaceの権限はアプリ側で確かめます。
+- 会話1つにsasacodeのセッション1つが対応します（`sh_sasacode_sessions`テーブル）。作業ディレクトリはDotごとです。
+
+| 変数               | 既定                                  | 内容                                                                    |
+| ------------------ | ------------------------------------- | ----------------------------------------------------------------------- |
+| `AGENT_HARNESS`    | `builtin`                             | `sasacode`で切り替えます                                                |
+| `SASACODE_BIN`     | `sasacode`                            | 実行ファイルのパス                                                      |
+| `SASACODE_HOME`    | `DATABASE_PATH`と同じ場所の`sasacode` | 設定とセッションの置き場所です。`config.json`は起動のたびに書き直します |
+| `SASACODE_WORKDIR` | `DATABASE_PATH`と同じ場所の`dots`     | Dotごとの作業ディレクトリの親です                                       |
+
+シェルとファイルの扱いは次のとおりです。
+
+- bashはサーバーの上で直接、アプリと同じユーザーで動きます。sudoは使えません。
+- 読むだけのコマンド（`uptime`、`df`、`free`、`systemctl status`、`journalctl -u`、`docker ps`など）は確認なしで動きます。一覧は`src/selfhost/sasacode/config.ts`の`READ_ONLY_COMMANDS`です。`;`や`|`でつないだコマンドは、全部が一覧に当てはまるときだけ通ります。
+- それ以外は承認を求めます。Webの会話画面に出るカードか、DiscordのDMに届くボタンで「許可」か「拒否」を選びます。先に答えたほうが有効で、5分答えがなければ拒否になります。
+- `.env`、`~/.ssh`、`~/.config`、トークンやAPIキーを含むコマンドは、読み書きとも禁止しています。
+
+saserverでは、sasacodeをGitHubのmainからビルドして使います。Bunはsasacodeの`packageManager`と同じ1.4.2を、GitHubのリリースから`SHASUMS256.txt`で検証して`/mnt/ssd/opendots/bun`に置いています。
+
+```sh
+# sasacodeの更新（GitHubのmainを取ってビルドし直す）
+ssh saserver 'cd /mnt/ssd/opendots/sasacode && export PATH=/mnt/ssd/opendots/bun:$PATH && git pull --ff-only && bun install --frozen-lockfile && bun run build'
+```
+
+`.env`に`AGENT_HARNESS=sasacode`と`SASACODE_BIN=/mnt/ssd/opendots/sasacode/dist/sasacode`を足して、サービスを再起動します。
+
 ## 使用量パネルとポリシー
 
 サイドバーのUsageパネルには、5時間・週・月の3本のバー（上限は$14、$35、$70）、役割別の消化額、月の理想ペース（1日あたり$70÷30）との差、働いているポリシーが出ます。同じ内容が`GET /api/selfhost/usage`で取れます。金額はトークン数に設定ファイルの単価を掛けた推計で、実請求とは少しずれます。補正の方法は「週次の見直し」にあります。
