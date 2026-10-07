@@ -92,6 +92,7 @@ export const entries: Record<string, string> = {
   'Review page draft': 'ページ下書きのレビュー',
   'Review changed': 'レビューの内容が変更されました',
   'Saved to your Space': 'スペースに保存しました',
+  'Saved, then deleted': '保存後に削除されました',
   'Checking saved review…': '保存済みのレビューを確認しています…',
   'Review ended': 'レビューを終了しました',
   'Ready for your review': 'レビューの準備ができました',

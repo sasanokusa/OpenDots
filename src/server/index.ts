@@ -93,7 +93,9 @@ const runner = new Runner(
         ? 'Running this task in its conversation.'
         : 'Running this task in its Intelligence conversation.',
     );
-    const text = await platform.turn(threadId, claim.prompt, signal);
+    const text = await platform.turn(threadId, claim.prompt, signal, {
+      opendotsSource: 'scheduled_task',
+    });
     return { text, sources: [], sample: false };
   },
   config.selfhost?.turnTimeLimitMs,

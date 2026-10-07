@@ -51,6 +51,7 @@ import {
   slackStatusLabel,
   type Dialog,
 } from './WorkspaceDialog';
+import { submitComposerOnEnter } from './chat-composer';
 import { UsagePanel } from './selfhost/UsagePanel';
 import { t, tMessage } from './selfhost/i18n';
 
@@ -512,7 +513,7 @@ export function App() {
           >
             <Clock3 size={17} />
             <span>{t('Scheduled & activity')}</span>
-            <small>{state.tasks.length}</small>
+            {state.tasks.length > 0 && <small>{state.tasks.length}</small>}
           </button>
           <button
             className={`nav-item ${view === 'memories' ? 'active' : ''}`}
@@ -523,7 +524,9 @@ export function App() {
           >
             <BookOpen size={17} />
             <span>{t('Memories')}</span>
-            <small>{state.memories.length}</small>
+            {state.memories.length > 0 && (
+              <small>{state.memories.length}</small>
+            )}
           </button>
           <button
             className="nav-item"
@@ -741,6 +744,12 @@ export function App() {
                       value={prompt}
                       maxLength={4000}
                       onChange={(e) => setPrompt(e.target.value)}
+                      onKeyDown={(e) =>
+                        submitComposerOnEnter(
+                          e,
+                          configured && !busy && !!prompt.trim(),
+                        )
+                      }
                       disabled={!configured}
                     />
                     <div className="composer-bottom">

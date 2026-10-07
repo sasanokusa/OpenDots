@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import type { Dot, Memory, State, WorkspaceState } from '../shared/types';
+import { ConnectionsSection } from './ConnectionsSection';
+import {
+  setThemePreference,
+  themePreference,
+  type ThemePreference,
+} from './theme';
 import { t } from './selfhost/i18n';
 
 /** Slack status as shown to the owner; the raw value is a snake_case id. */
@@ -60,6 +66,7 @@ export function WorkspaceDialog({
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [theme, setTheme] = useState(themePreference);
   const container = useRef<HTMLElement>(null);
   useEffect(() => {
     const previous =
@@ -346,6 +353,9 @@ export function WorkspaceDialog({
               </a>
             </fieldset>
           )}
+          {dialog.type === 'dot' && dialog.dot && (
+            <ConnectionsSection dotId={dialog.dot.id} />
+          )}
           {dialog.type === 'schedule' && (
             <>
               <label className="field-label" htmlFor="schedule-interval">
@@ -367,6 +377,33 @@ export function WorkspaceDialog({
                 )}
               </p>
             </>
+          )}
+          {dialog.type === 'settings' && (
+            <fieldset className="appearance-fields">
+              <legend>Appearance</legend>
+              <div className="segmented" role="radiogroup">
+                {(['system', 'light', 'dark'] as ThemePreference[]).map(
+                  (option) => (
+                    <label key={option}>
+                      <input
+                        type="radio"
+                        name="theme"
+                        value={option}
+                        checked={theme === option}
+                        onChange={() => {
+                          setTheme(option);
+                          setThemePreference(option);
+                        }}
+                      />
+                      <span>{option[0].toUpperCase() + option.slice(1)}</span>
+                    </label>
+                  ),
+                )}
+              </div>
+              <p className="muted">
+                Saved in this browser. System follows your device.
+              </p>
+            </fieldset>
           )}
           {dialog.type === 'settings' && (
             <div className="config-note">
