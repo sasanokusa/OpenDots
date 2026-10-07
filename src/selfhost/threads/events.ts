@@ -8,6 +8,8 @@ export type SelfhostEvent =
   | { type: 'thread_updated'; threadId: string }
   | { type: 'run_finished'; threadId: string; runId: string }
   | { type: 'usage_updated' }
+  /** The app is stopping: open event streams end so the server can close. */
+  | { type: 'shutdown' }
   | { type: 'approval_requested'; approval: PendingApproval }
   | {
       type: 'approval_resolved';

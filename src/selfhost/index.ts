@@ -170,6 +170,7 @@ export function createSelfhostBackend({
     turn: (agent, threadId, prompt, signal, metadata) =>
       runTurnInProcess(runner, agent, threadId, prompt, signal, metadata),
     async close() {
+      events.emit({ type: 'shutdown' });
       for (const service of services.splice(0).reverse())
         await Promise.resolve()
           .then(() => service.stop())

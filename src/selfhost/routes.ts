@@ -241,6 +241,7 @@ export function selfhostRoutes(
             continue;
           }
           const event = queue.shift()!;
+          if (event.type === 'shutdown') break;
           await stream.writeSSE({
             event: event.type,
             data: JSON.stringify(event),
