@@ -6,6 +6,7 @@ import {
   type RunAgentInput,
 } from '@ag-ui/client';
 import { currentTurnText } from '../server/headless.js';
+import { scheduledTaskMessagePrefix } from '../shared/scheduled-message.js';
 import { voiceReceiptMessagePrefix } from '../shared/voice-receipt.js';
 import type { SelfhostAgentRunner } from './runner/sqlite-runner.js';
 
@@ -14,6 +15,15 @@ import type { SelfhostAgentRunner } from './runner/sqlite-runner.js';
  * upstream's Intelligence WebSocket path; the run goes through the same runner
  * as the web UI, so it lands in the same thread history.
  */
+// Message ids carry the source, as upstream does, so the label survives replay.
+function idPrefix(metadata?: Record<string, unknown>): string {
+  if (metadata?.opendotsSource === 'voice_receipt')
+    return voiceReceiptMessagePrefix;
+  if (metadata?.opendotsSource === 'scheduled_task')
+    return scheduledTaskMessagePrefix;
+  return '';
+}
+
 export async function runTurnInProcess(
   runner: SelfhostAgentRunner,
   agent: AbstractAgent,
@@ -24,7 +34,7 @@ export async function runTurnInProcess(
 ): Promise<string> {
   signal.throwIfAborted();
   const message = {
-    id: `${metadata?.opendotsSource === 'voice_receipt' ? voiceReceiptMessagePrefix : ''}${randomUUID()}`,
+    id: `${idPrefix(metadata)}${randomUUID()}`,
     role: 'user',
     content: prompt,
     ...(metadata ? { metadata } : {}),

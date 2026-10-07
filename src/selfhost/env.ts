@@ -1,3 +1,4 @@
+import { parseBriefTime } from './brief/daily.js';
 import type { PlatformConfig } from '../server/platform-config.js';
 import type { WorkspaceStore } from '../server/workspace.js';
 import { roles, turn } from './config/models.js';
@@ -39,6 +40,9 @@ function discordSettings(env: Env, client?: DiscordClientLike) {
     settings && {
       ...settings,
       routerCommands: modelRouterEnabled(env),
+      briefMinutes: env.MORNING_BRIEF_AT?.trim()
+        ? parseBriefTime(env.MORNING_BRIEF_AT)
+        : undefined,
       client,
     }
   );

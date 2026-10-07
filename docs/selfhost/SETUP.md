@@ -90,14 +90,15 @@ Dot Computerを使う場合は、`docs/COMPUTERS.md`に従ってsupervisorをDoc
 - ページ操作、承認カード、ワーカーへの委任、Sonnetへの相談は、同じ中継のMCPでsasacodeに渡します。Spaceの権限はアプリ側で確かめます。
 - 会話1つにsasacodeのセッション1つが対応します（`sh_sasacode_sessions`テーブル）。作業ディレクトリはDotごとです。
 
-| 変数                  | 既定                                  | 内容                                                                    |
-| --------------------- | ------------------------------------- | ----------------------------------------------------------------------- |
-| `AGENT_HARNESS`       | `builtin`                             | `sasacode`で切り替えます                                                |
-| `SASACODE_BIN`        | `sasacode`                            | 実行ファイルのパス                                                      |
-| `SASACODE_HOME`       | `DATABASE_PATH`と同じ場所の`sasacode` | 設定とセッションの置き場所です。`config.json`は起動のたびに書き直します |
-| `SASACODE_WORKDIR`    | `DATABASE_PATH`と同じ場所の`dots`     | Dotごとの作業ディレクトリの親です                                       |
-| `SASACODE_PERMISSION` | `agent`                               | 確認のしかたです（下を参照）                                            |
-| `SASACODE_SSH_HOSTS`  | なし                                  | Dotが`ssh`で入れるほかのサーバー（カンマ区切り）。下を参照              |
+| 変数                     | 既定                                  | 内容                                                                    |
+| ------------------------ | ------------------------------------- | ----------------------------------------------------------------------- |
+| `AGENT_HARNESS`          | `builtin`                             | `sasacode`で切り替えます                                                |
+| `SASACODE_BIN`           | `sasacode`                            | 実行ファイルのパス                                                      |
+| `SASACODE_HOME`          | `DATABASE_PATH`と同じ場所の`sasacode` | 設定とセッションの置き場所です。`config.json`は起動のたびに書き直します |
+| `SASACODE_WORKDIR`       | `DATABASE_PATH`と同じ場所の`dots`     | Dotごとの作業ディレクトリの親です                                       |
+| `SASACODE_PERMISSION`    | `agent`                               | 確認のしかたです（下を参照）                                            |
+| `SASACODE_SSH_HOSTS`     | なし                                  | Dotが`ssh`で入れるほかのサーバー（カンマ区切り）。下を参照              |
+| `SASACODE_PRIVATE_PATHS` | なし                                  | Dotに読ませないディレクトリ（絶対パス、カンマ区切り）                   |
 
 シェルとファイルの扱いは次のとおりです。
 
@@ -106,6 +107,7 @@ Dot Computerを使う場合は、`docs/COMPUTERS.md`に従ってsupervisorをDoc
 - それ以外は、既定ではsasacodeのagentモードでモデルが1件ずつ安全かを判定し、危ないと判断したものだけ承認を求めます。判定には速くて安いDeepSeek V4.1 Flash（ワーカー役のモデル）を使い、費用はワーカー役として記録されます。Webの会話画面に出るカードか、DiscordのDMに届くボタンで「許可」か「拒否」を選びます。先に答えたほうが有効で、5分答えがなければ拒否になります。
 - 判定のしかたは`SASACODE_PERMISSION`で変えられます。`agent`（既定、モデルが判定）、`edits`（作業ディレクトリ内の読み書きだけ確認なし、ほかはすべて承認）、`ask`（すべて承認）、`auto`（禁止ルール以外はすべて実行）です。
 - `.env`、`~/.ssh`、`~/.config`、トークンやAPIキーを含むコマンドは、読み書きとも禁止しています。
+- `SASACODE_PRIVATE_PATHS`に並べたディレクトリは、ファイルの読み書きと、そのパスを含むコマンドを禁止します。Googleの許可情報の置き場所（下の「外部サービスをつなぐ」）を入れておきます。コマンドの文字列で見ているので、別の書き方で回り込まれる余地は残ります。最後の守りはagentモードの判定です。
 - `SASACODE_SSH_HOSTS`にサーバー名を並べると、Dotへの説明にそのサーバー名が入り、`ssh <サーバー名> <コマンド>`で確認できることをDotが知ります。ログインの設定（鍵やTailscale SSHのポリシー、`~/.ssh/config`のユーザー名）は先に済ませておきます。sshのコマンドは読むだけのものも含めて判定を通り、`ssh … sudo …`は禁止です。
 
 saserverでは、sasacodeをGitHubのmainからビルドして使います。Bunはsasacodeの`packageManager`と同じ1.4.2を、GitHubのリリースから`SHASUMS256.txt`で検証して`/mnt/ssd/opendots/bun`に置いています。
@@ -116,6 +118,43 @@ ssh saserver 'cd /mnt/ssd/opendots/sasacode && export PATH=/mnt/ssd/opendots/bun
 ```
 
 `.env`に`AGENT_HARNESS=sasacode`と`SASACODE_BIN=/mnt/ssd/opendots/sasacode/dist/sasacode`を足して、サービスを再起動します。
+
+## 外部サービス（Google・GitHub）をつなぐ
+
+本家の「Connections」を使います。Dotの設定（専門Dotを編集）の「接続」に、MCPサーバーのURLと、必要ならトークンを入れて「接続」を押します。詳しくは`docs/CONNECTIONS.md`にあります。
+
+`AGENT_HARNESS=sasacode`のときの動き方は次のとおりです。
+
+- つないだサービスのツールは、`<接続名>__<ツール名>`という名前でsasacodeに渡ります。sasacodeの確認はかけず、OpenDots側で次のように扱います。
+- 読むだけのツール（サーバーが`readOnlyHint`を付けたもの）は、そのまま動きます。
+- 「先に確認」がオンのツールは、Webの承認カードとDiscordのボタンで許可してから動きます。本家のチャット内の承認カードは使いません。
+- ツールごとのオン・オフと「先に確認」は、接続の設定画面で変えられます。
+
+### Google（Gmail・カレンダー・ToDo・ドライブ）
+
+saserverでは[google_workspace_mcp](https://github.com/taylorwilsdon/google_workspace_mcp)（`workspace-mcp` 2.0.1）を、systemdのユーザーサービス`opendots-google.service`として127.0.0.1:8817で動かしています。
+
+- uvは、GitHubのリリースからチェックサムを確かめて`/mnt/ssd/opendots/uv`に置き、`uv tool install workspace-mcp==2.0.1`で`/mnt/ssd/opendots/uv-tools`に入れました。
+- 権限は`--permissions gmail:drafts calendar:full tasks:full drive:readonly docs:readonly`です。Gmailは読み取り・ラベル・下書きまでで、送信のツールはありません。ツールの範囲は`--tool-tier extended`です。
+- OAuthクライアント（種類はデスクトップアプリ）は`/mnt/ssd/opendots/google/client_secret.json`に、許可情報は`/mnt/ssd/opendots/google/credentials/`に置きます（どちらも本人だけ読める権限）。既定のアカウントは`/mnt/ssd/opendots/google/env`の`USER_GOOGLE_EMAIL`です。
+- Google Cloudの同意画面は「本番環境」にしておきます。「テスト」のままだと、7日で許可が切れます。
+- 初回の許可は、Macから`ssh -N -L 127.0.0.1:8817:127.0.0.1:8817 saserver`で中継してから、ツールを呼んで返ってくるURLをMacのブラウザで開きます。許可後のリダイレクト先`http://localhost:8817/oauth2callback`が、この中継でsaserverに届きます。
+- Dotの接続には、URL`http://127.0.0.1:8817/mcp`をトークンなしで登録します。
+
+### GitHub
+
+GitHubの公式MCPサーバーを、読むだけで使います。
+
+1. GitHubの「Settings」→「Developer settings」→「Fine-grained tokens」でトークンを作ります。リポジトリは「All repositories」、権限はContents・Issues・Pull requests・Metadataを「Read-only」にします。
+2. Dotの接続に、URL`https://api.githubcopilot.com/mcp/readonly`とそのトークンを登録します。トークンはサーバーのデータベースに入り、ブラウザには返りません。
+
+## 毎朝のまとめ
+
+`MORNING_BRIEF_AT=07:30`のように時刻（サーバーのタイムゾーン）を書くと、毎日その時刻に、DiscordのDMの会話でDotが残タスクのまとめを送ります。Discordの設定が必要です。
+
+- DotはGoogle（予定・返事が要りそうなメール・ToDo）、GitHub（自分に関係するissueとPR、最近の動き）、スペースのページから、つながっているものだけを集めます。集め方はsasacodeのDotへの説明（`TASK_SWEEP`）にあり、会話で「残タスク出して」と頼んだときも同じように集めます。
+- DMの会話の中で動くので、届いたまとめにそのまま返信して続きを頼めます。Webの会話一覧では「Discord DM」の中に、定期実行の印付きで残ります。
+- サーバーが止まっていて時刻を過ぎた日は、起動から3時間以内なら1回だけ送ります。一時停止中は送りません。
 
 ## 使用量パネルとポリシー
 

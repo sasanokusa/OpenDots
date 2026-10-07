@@ -69,6 +69,10 @@ class FakeUser implements DiscordUserLike {
     this.sent.push(message);
     return message;
   }
+
+  createDM(): Promise<never> {
+    return Promise.reject(new Error('unused'));
+  }
 }
 
 class FakeClient extends EventEmitter implements DiscordClientLike {

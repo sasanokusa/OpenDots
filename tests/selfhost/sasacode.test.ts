@@ -482,6 +482,7 @@ describe('environmentNote', () => {
     expect(note).toContain('opendots MCP server');
     expect(note).toMatch(/Never reveal secrets/);
     expect(note).not.toContain('ssh');
+    expect(note).toContain('Remaining tasks:');
   });
 
   it('lists the other servers the Dot can reach over ssh', () => {

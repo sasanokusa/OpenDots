@@ -16,6 +16,7 @@ import { BacklogRunner } from './backlog/runner.js';
 import { evaluatePolicy } from './usage/policy.js';
 import { DiscordBridge, type DiscordClientLike } from './discord/bridge.js';
 import { ApprovalBroker } from './approvals/broker.js';
+import { DailyBrief, briefPrompt } from './brief/daily.js';
 
 export interface DiscordSettings {
   token: string;
@@ -24,6 +25,8 @@ export interface DiscordSettings {
   publicUrl?: string;
   /** Offer /plan and /escalate in the DM (MODEL_ROUTER=on). */
   routerCommands?: boolean;
+  /** MORNING_BRIEF_AT as minutes after local midnight; unset = no brief. */
+  briefMinutes?: number;
   /** Test seam. */
   client?: DiscordClientLike;
 }
@@ -152,11 +155,29 @@ export function createSelfhostBackend({
           createThread: (id, title) => threads.create(id, title),
           threadExists: (threadId) =>
             workspace.conversations().some((thread) => thread.id === threadId),
-          turn: (threadId, prompt, signal) =>
-            host.turn(threadId, prompt, signal),
+          turn: (threadId, prompt, signal, metadata) =>
+            host.turn(threadId, prompt, signal, metadata),
           paused: () => host.paused(),
         });
         services.push(backend.discord);
+        if (discord.briefMinutes !== undefined) {
+          const bridge = backend.discord;
+          services.push(
+            new DailyBrief({
+              db,
+              minutes: discord.briefMinutes,
+              now,
+              paused: () => host.paused(),
+              send: async () => {
+                const result = await bridge.proactive(
+                  briefPrompt((now ?? Date.now)()),
+                );
+                if (result !== 'sent')
+                  console.error(`Morning brief skipped: ${result}.`);
+              },
+            }),
+          );
+        }
       }
     },
     start() {

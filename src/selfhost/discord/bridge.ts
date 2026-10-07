@@ -98,6 +98,8 @@ export interface DiscordUserLike {
     content: string;
     components: ApprovalButtons[];
   }): Promise<DiscordSentMessageLike>;
+  /** The DM channel with this user (discord.js `User.createDM`). */
+  createDM(): Promise<DiscordChannelLike & { id: string }>;
 }
 
 /** What the bridge reads from a discord.js `Interaction`. */
@@ -198,6 +200,7 @@ export interface DiscordBridgeOptions {
     threadId: string,
     prompt: string,
     signal: AbortSignal,
+    metadata?: Record<string, unknown>,
   ) => Promise<string>;
   paused: () => boolean;
   /** Web app URL, returned by `/web` and for approvals. */
@@ -580,10 +583,27 @@ export class DiscordBridge {
     await this.runTurn(channel, channelId, text);
   }
 
+  /**
+   * Starts a turn in the owner's DM conversation without a message from them
+   * (the morning brief). The prompt is saved as a scheduled message, and the
+   * reply lands in the DM so the owner can answer it there.
+   */
+  async proactive(prompt: string): Promise<'sent' | 'busy' | 'unavailable'> {
+    if (!this.started || this.stopped) return 'unavailable';
+    const owner = await this.client.users.fetch(this.options.ownerUserId);
+    const channel = await owner.createDM();
+    if (this.inFlight.has(channel.id)) return 'busy';
+    await this.runTurn(channel, channel.id, prompt, {
+      opendotsSource: 'scheduled_task',
+    });
+    return 'sent';
+  }
+
   private async runTurn(
     channel: DiscordChannelLike,
     channelId: string,
     prompt: string,
+    metadata?: Record<string, unknown>,
   ): Promise<void> {
     const controller = new AbortController();
     const typing = this.startTyping(channel);
@@ -593,7 +613,12 @@ export class DiscordBridge {
     let failure: unknown;
     try {
       const threadId = this.threadFor(channelId);
-      answer = await this.options.turn(threadId, prompt, controller.signal);
+      answer = await this.options.turn(
+        threadId,
+        prompt,
+        controller.signal,
+        metadata,
+      );
     } catch (error) {
       failure = error;
     } finally {
