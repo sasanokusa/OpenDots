@@ -58,6 +58,9 @@ export function explainReason(reason: string): string {
   if (risky) return `The safety check judged this risky: ${risky[1]}`;
   const failed = /^judge failed: (.+)$/s.exec(reason);
   if (failed) return `The safety check failed: ${failed[1]}`;
+  const service = /^connection ask: (.+)$/s.exec(reason);
+  if (service)
+    return `This connected-service action asks you first: ${service[1]}.`;
   return reason;
 }
 
@@ -73,6 +76,10 @@ export function japaneseReason(reason: string): string {
   if (risky) return `安全チェックで危険と判断されました: ${risky[1]}`;
   const failed = /^The safety check failed: (.+)$/s.exec(reason);
   if (failed) return `安全チェックに失敗しました: ${failed[1]}`;
+  const service =
+    /^This connected-service action asks you first: (.+)\.$/s.exec(reason);
+  if (service)
+    return `つないだサービスへの操作なので、確認が必要です: ${service[1]}`;
   return reason;
 }
 

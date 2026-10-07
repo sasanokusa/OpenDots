@@ -25,6 +25,7 @@ import {
 import {
   agentHarness,
   permissionMode,
+  privatePaths,
   sshHosts,
 } from '../../src/selfhost/sasacode/index.js';
 import { RunRegistry, roleForModel } from '../../src/selfhost/sasacode/runs.js';
@@ -849,5 +850,38 @@ describe('approval reasons', () => {
       expect(explainReason(raw)).toBe(english);
       expect(japaneseReason(english)).toBe(japanese);
     }
+  });
+});
+
+describe('privatePaths', () => {
+  it('reads absolute directories and keeps them from the Dot', () => {
+    expect(privatePaths({})).toEqual([]);
+    expect(
+      privatePaths({
+        SASACODE_PRIVATE_PATHS: ' /mnt/ssd/opendots/google/ ,/a',
+      }),
+    ).toEqual(['/mnt/ssd/opendots/google', '/a']);
+    const config = sasacodeConfig({
+      home: '/data/sasacode',
+      port: 4567,
+      appDir: '/srv/opendots',
+      homeDir: '/home/sasa',
+      privatePaths: ['/mnt/ssd/opendots/google'],
+    });
+    expect(config.permissions.deny).toEqual(
+      expect.arrayContaining([
+        'read(/mnt/ssd/opendots/google)',
+        'read(/mnt/ssd/opendots/google/**)',
+        'write(/mnt/ssd/opendots/google/**)',
+        'bash(*/mnt/ssd/opendots/google*)',
+      ]),
+    );
+  });
+
+  it('refuses relative paths and wildcards', () => {
+    for (const bad of ['google', '/mnt/*'])
+      expect(() => privatePaths({ SASACODE_PRIVATE_PATHS: bad })).toThrow(
+        'SASACODE_PRIVATE_PATHS needs absolute paths without wildcards',
+      );
   });
 });

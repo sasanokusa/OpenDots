@@ -39,6 +39,20 @@ export function sshHosts(env: Env): string[] {
   return [...new Set(hosts)];
 }
 
+/** `SASACODE_PRIVATE_PATHS`: comma-separated absolute directories kept from the Dot. */
+export function privatePaths(env: Env): string[] {
+  const paths = (env.SASACODE_PRIVATE_PATHS ?? '')
+    .split(',')
+    .map((path) => path.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
+  const bad = paths.find((path) => !path.startsWith('/') || /[*?]/.test(path));
+  if (bad)
+    throw new Error(
+      `SASACODE_PRIVATE_PATHS needs absolute paths without wildcards: ${JSON.stringify(bad)}.`,
+    );
+  return [...new Set(paths)];
+}
+
 export function agentHarness(env: Env): 'builtin' | 'sasacode' {
   const value = env.AGENT_HARNESS?.trim() || 'builtin';
   if (value !== 'builtin' && value !== 'sasacode')
@@ -54,6 +68,7 @@ export interface SasacodeOptions {
   home: string;
   workRoot: string;
   sshHosts?: string[];
+  privatePaths?: string[];
   appDir: string;
   port?: number;
   approvals?: ApprovalBroker;
@@ -106,6 +121,7 @@ export function createSasacode(options: SasacodeOptions) {
           port: server.port,
           appDir: options.appDir,
           homeDir: homedir(),
+          privatePaths: options.privatePaths,
           mode: options.mode,
         });
         markReady();

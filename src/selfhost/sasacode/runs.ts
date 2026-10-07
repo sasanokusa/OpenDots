@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import type { ToolDefinition } from '@copilotkit/runtime/v2';
 import { roles, type RoleName } from '../config/models.js';
 import type { PageReviewDraft } from '../../shared/page-review.js';
+import type { ServiceTool } from './services.js';
 
 /** One sasacode child process, as the internal server sees it. */
 export interface SasacodeRun {
@@ -12,6 +13,8 @@ export interface SasacodeRun {
   model: string;
   /** OpenDots tools offered to sasacode over MCP for this run. */
   tools: ToolDefinition[];
+  /** The Dot's connected-service tools (upstream MCP connections). */
+  services?: ServiceTool[];
   /** Set when the browser offered the human review card for this run. */
   onReview?: (draft: PageReviewDraft) => void;
   signal: AbortSignal;

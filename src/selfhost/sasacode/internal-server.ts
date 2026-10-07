@@ -60,6 +60,11 @@ function mcpServer(run: SasacodeRun): Server {
         description: tool.description,
         inputSchema: inputSchema(tool),
       })),
+      ...(run.services ?? []).map(({ name, description, inputSchema }) => ({
+        name,
+        description,
+        inputSchema,
+      })),
       ...(run.onReview
         ? [
             {
@@ -80,6 +85,16 @@ function mcpServer(run: SasacodeRun): Server {
       if (name === pageReviewTool.name && run.onReview) {
         run.onReview(pageReviewSchema.parse(args));
         return text(REVIEW_PENDING);
+      }
+      const service = run.services?.find((item) => item.name === name);
+      if (service) {
+        run.signal.throwIfAborted();
+        const result = await service.call(
+          args && typeof args === 'object' && !Array.isArray(args)
+            ? (args as Record<string, unknown>)
+            : {},
+        );
+        return text(result.text, result.isError);
       }
       const tool = run.tools.find((candidate) => candidate.name === name);
       if (!tool?.execute) return text(`Unknown tool: ${name}`, true);

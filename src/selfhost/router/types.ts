@@ -6,6 +6,7 @@ import type {
 } from '@copilotkit/runtime/v2';
 import type { openaiCompatibleText } from '@tanstack/ai-openai/compatible';
 import type { RoleName } from '../config/models.js';
+import type { ConnectionService } from '../../server/connections.js';
 
 export type ChatAdapter = ReturnType<typeof openaiCompatibleText>;
 
@@ -42,6 +43,8 @@ export interface HarnessRunInput {
   check: () => void;
   baseTools: ToolDefinition[];
   systemPrompt: string;
+  /** The Dot's MCP connections (upstream); sasacode gets them as tools. */
+  connections?: ConnectionService;
 }
 
 /** Hooks DotAgent reads from `PlatformConfig.selfhost`. */

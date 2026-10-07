@@ -287,8 +287,9 @@ export class DotAgent extends AbstractAgent {
         const approvals = clientTools.some(
           (tool) => tool.name === connectionActionTool.name,
         );
+        const connections = new ConnectionService(this.workspace.connections);
         const connected = connectionTools(
-          new ConnectionService(this.workspace.connections),
+          connections,
           dot.id,
           input.threadId,
           check,
@@ -397,6 +398,7 @@ export class DotAgent extends AbstractAgent {
                 check,
                 baseTools: serverTools,
                 systemPrompt: prompt,
+                connections,
               }),
           });
         subscription = this.inner

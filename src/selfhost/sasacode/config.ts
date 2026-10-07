@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { prices, roles } from '../config/models.js';
+import { SERVICE_TOOL_PATTERN } from './services.js';
 
 /** Provider name OpenDots registers in sasacode for its loopback relay. */
 export const PROVIDER = 'opendots';
@@ -92,6 +93,8 @@ export interface SasacodeConfigOptions {
   /** Paths whose secrets must never be read or changed (the app, HOME). */
   appDir: string;
   homeDir: string;
+  /** More directories the Dot must never touch (SASACODE_PRIVATE_PATHS). */
+  privatePaths?: string[];
 }
 
 const CONTEXT_WINDOW = 131_072;
@@ -105,6 +108,7 @@ export function sasacodeConfig(options: SasacodeConfigOptions) {
     `${options.homeDir}/.ssh/**`,
     `${options.homeDir}/.config/**`,
     `${options.home}/.env`,
+    ...(options.privatePaths ?? []).flatMap((path) => [path, `${path}/**`]),
   ];
   return {
     model: `${PROVIDER}/${roles.chat.model}`,
@@ -152,6 +156,7 @@ export function sasacodeConfig(options: SasacodeConfigOptions) {
       mode: options.mode ?? 'agent',
       allow: [
         ...OPENDOTS_TOOLS,
+        SERVICE_TOOL_PATTERN,
         ...READ_ONLY_COMMANDS.map((command) => `bash(${command})`),
       ],
       deny: [
@@ -169,6 +174,7 @@ export function sasacodeConfig(options: SasacodeConfigOptions) {
         'bash(*API_KEY*)',
         'bash(sudo *)',
         'bash(ssh *sudo*)',
+        ...(options.privatePaths ?? []).map((path) => `bash(*${path}*)`),
       ],
     },
     plugins: { disabled: ['openai-codex', 'browsr', 'background-sessions'] },
