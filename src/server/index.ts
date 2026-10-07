@@ -142,9 +142,11 @@ const shutdown = createShutdown({
     await selfhost?.close();
   },
   closeServer: () =>
-    new Promise<void>((resolve, reject) =>
-      server.close((error) => (error ? reject(error) : resolve())),
-    ),
+    new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+      // fork: open streams (events, thread subscriptions) never end on their own.
+      (server as { closeAllConnections?: () => void }).closeAllConnections?.();
+    }),
   exit: (code) => process.exit(code),
   report: (operation, error) =>
     reportChannelFailure(operation, [safeFailure(error)]),
