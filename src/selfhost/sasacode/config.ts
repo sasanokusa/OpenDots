@@ -168,6 +168,7 @@ export function sasacodeConfig(options: SasacodeConfigOptions) {
         'bash(*TOKEN*)',
         'bash(*API_KEY*)',
         'bash(sudo *)',
+        'bash(ssh *sudo*)',
       ],
     },
     plugins: { disabled: ['openai-codex', 'browsr', 'background-sessions'] },

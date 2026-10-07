@@ -97,6 +97,7 @@ Dot Computerを使う場合は、`docs/COMPUTERS.md`に従ってsupervisorをDoc
 | `SASACODE_HOME`       | `DATABASE_PATH`と同じ場所の`sasacode` | 設定とセッションの置き場所です。`config.json`は起動のたびに書き直します |
 | `SASACODE_WORKDIR`    | `DATABASE_PATH`と同じ場所の`dots`     | Dotごとの作業ディレクトリの親です                                       |
 | `SASACODE_PERMISSION` | `agent`                               | 確認のしかたです（下を参照）                                            |
+| `SASACODE_SSH_HOSTS`  | なし                                  | Dotが`ssh`で入れるほかのサーバー（カンマ区切り）。下を参照              |
 
 シェルとファイルの扱いは次のとおりです。
 
@@ -105,6 +106,7 @@ Dot Computerを使う場合は、`docs/COMPUTERS.md`に従ってsupervisorをDoc
 - それ以外は、既定ではsasacodeのagentモードでモデルが1件ずつ安全かを判定し、危ないと判断したものだけ承認を求めます。判定には速くて安いDeepSeek V4.1 Flash（ワーカー役のモデル）を使い、費用はワーカー役として記録されます。Webの会話画面に出るカードか、DiscordのDMに届くボタンで「許可」か「拒否」を選びます。先に答えたほうが有効で、5分答えがなければ拒否になります。
 - 判定のしかたは`SASACODE_PERMISSION`で変えられます。`agent`（既定、モデルが判定）、`edits`（作業ディレクトリ内の読み書きだけ確認なし、ほかはすべて承認）、`ask`（すべて承認）、`auto`（禁止ルール以外はすべて実行）です。
 - `.env`、`~/.ssh`、`~/.config`、トークンやAPIキーを含むコマンドは、読み書きとも禁止しています。
+- `SASACODE_SSH_HOSTS`にサーバー名を並べると、Dotへの説明にそのサーバー名が入り、`ssh <サーバー名> <コマンド>`で確認できることをDotが知ります。ログインの設定（鍵やTailscale SSHのポリシー、`~/.ssh/config`のユーザー名）は先に済ませておきます。sshのコマンドは読むだけのものも含めて判定を通り、`ssh … sudo …`は禁止です。
 
 saserverでは、sasacodeをGitHubのmainからビルドして使います。Bunはsasacodeの`packageManager`と同じ1.4.2を、GitHubのリリースから`SHASUMS256.txt`で検証して`/mnt/ssd/opendots/bun`に置いています。
 

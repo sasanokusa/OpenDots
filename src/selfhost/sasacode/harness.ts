@@ -38,6 +38,8 @@ export interface SasacodeHarnessDeps {
   home: string;
   /** Parent of the per-Dot working directories. */
   workRoot: string;
+  /** Other machines the Dot may reach with `ssh <host>`, named in its prompt. */
+  sshHosts?: string[];
   runs: RunRegistry;
   sessions: SasacodeSessions;
   planTurn: (input: TurnPlanInput) => Promise<TurnPlan>;
@@ -57,8 +59,10 @@ const NO_APPROVER =
 
 const TRANSCRIPT_MAX_CHARS = 20_000;
 
-export function environmentNote(cwd: string): string {
-  return `Environment: you run inside sasacode on the owner's home server (saserver) as an unprivileged user without sudo. Your working directory is ${cwd}; files you create stay there. The bash tool runs on the server itself. Read-only status commands (uptime, df, free, systemctl status, journalctl, docker ps and similar) run immediately; other actions pass a safety check, and risky ones need the owner's approval and may be refused. OpenDots tools (Space pages, the review card, delegation, the advisor) come from the opendots MCP server. Never reveal secrets such as API keys, tokens or the contents of .env files.`;
+export function environmentNote(cwd: string, sshHosts: string[] = []): string {
+  const note = `Environment: you run inside sasacode on the owner's home server (saserver) as an unprivileged user without sudo. Your working directory is ${cwd}; files you create stay there. The bash tool runs on the server itself. Read-only status commands (uptime, df, free, systemctl status, journalctl, docker ps and similar) run immediately; other actions pass a safety check, and risky ones need the owner's approval and may be refused. OpenDots tools (Space pages, the review card, delegation, the advisor) come from the opendots MCP server. Never reveal secrets such as API keys, tokens or the contents of .env files.`;
+  if (!sshHosts.length) return note;
+  return `${note}\n\nOther servers: you can reach the owner's other machines over SSH as an unprivileged user: ${sshHosts.join(', ')}. Run a command there with \`ssh <host> <command>\` (it is non-interactive; logins and keys are already set up). sudo is not available there either. Each ssh command passes the same safety check, so prefer read-only commands and say which server an answer came from.`;
 }
 
 type Part = { type?: string; text?: string };
@@ -168,7 +172,11 @@ export function createSasacodeHarness(deps: SasacodeHarnessDeps) {
     const systemFile = join(scratch, 'system.md');
     writeFileSync(
       systemFile,
-      [input.systemPrompt, plan.systemPromptSuffix, environmentNote(cwd)]
+      [
+        input.systemPrompt,
+        plan.systemPromptSuffix,
+        environmentNote(cwd, deps.sshHosts),
+      ]
         .filter(Boolean)
         .join('\n\n'),
       { mode: 0o600 },

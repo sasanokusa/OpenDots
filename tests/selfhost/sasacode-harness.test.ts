@@ -264,6 +264,18 @@ describe('a plain text run', () => {
     );
   });
 
+  it('names the other servers in the prompt file when ssh hosts are set', async () => {
+    await say('[system]', {}, { sshHosts: ['bazzite', 'sasa-llm'] });
+    const cwd = join(workRoot, 'dot-1');
+    expect(invocations()[0].system).toBe(
+      [
+        'SYSTEM PROMPT',
+        'SUFFIX',
+        environmentNote(cwd, ['bazzite', 'sasa-llm']),
+      ].join('\n\n'),
+    );
+  });
+
   it('keeps the prompt file and its directory private to the user', async () => {
     await say('hi');
     const [call] = invocations();

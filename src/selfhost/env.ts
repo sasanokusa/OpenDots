@@ -8,6 +8,7 @@ import {
   agentHarness,
   createSasacode,
   permissionMode,
+  sshHosts,
 } from './sasacode/index.js';
 import { dirname, join, resolve } from 'node:path';
 import { chat } from '@tanstack/ai';
@@ -122,6 +123,7 @@ export function enableSelfhost(
         binary: env.SASACODE_BIN?.trim() || 'sasacode',
         home: env.SASACODE_HOME?.trim() || join(dataDir, 'sasacode'),
         workRoot: env.SASACODE_WORKDIR?.trim() || join(dataDir, 'dots'),
+        sshHosts: sshHosts(env),
         appDir: resolve('.'),
         approvals: backend.approvals,
         mode: permissionMode(env),

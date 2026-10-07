@@ -25,6 +25,7 @@ import {
 import {
   agentHarness,
   permissionMode,
+  sshHosts,
 } from '../../src/selfhost/sasacode/index.js';
 import { RunRegistry, roleForModel } from '../../src/selfhost/sasacode/runs.js';
 import { SasacodeSessions } from '../../src/selfhost/sasacode/sessions.js';
@@ -479,6 +480,33 @@ describe('environmentNote', () => {
     expect(note).toContain('without sudo');
     expect(note).toContain('opendots MCP server');
     expect(note).toMatch(/Never reveal secrets/);
+    expect(note).not.toContain('ssh');
+  });
+
+  it('lists the other servers the Dot can reach over ssh', () => {
+    const note = environmentNote('/srv/dots/dot-1', ['bazzite', 'sasa-llm']);
+    expect(note).toContain(
+      'over SSH as an unprivileged user: bazzite, sasa-llm.',
+    );
+    expect(note).toContain('`ssh <host> <command>`');
+    expect(note).toContain('sudo is not available there either');
+  });
+});
+
+describe('sshHosts', () => {
+  it('reads a comma-separated list, trimmed and without duplicates', () => {
+    expect(sshHosts({})).toEqual([]);
+    expect(sshHosts({ SASACODE_SSH_HOSTS: ' ' })).toEqual([]);
+    expect(
+      sshHosts({ SASACODE_SSH_HOSTS: 'bazzite, sasa-llm,,bazzite ,a.b_c' }),
+    ).toEqual(['bazzite', 'sasa-llm', 'a.b_c']);
+  });
+
+  it('refuses names that are not plain host names', () => {
+    for (const bad of ['root@bazzite', '-oProxyCommand=x', 'a b', 'a;b'])
+      expect(() => sshHosts({ SASACODE_SSH_HOSTS: bad })).toThrow(
+        'SASACODE_SSH_HOSTS has an invalid host name',
+      );
   });
 });
 
@@ -573,6 +601,7 @@ describe('sasacodeConfig', () => {
         'bash(*TOKEN*)',
         'bash(*API_KEY*)',
         'bash(sudo *)',
+        'bash(ssh *sudo*)',
       ]),
     );
   });

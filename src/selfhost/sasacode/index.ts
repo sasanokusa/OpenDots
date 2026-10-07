@@ -25,6 +25,20 @@ export function permissionMode(env: Env): PermissionMode {
   return value as PermissionMode;
 }
 
+/** `SASACODE_SSH_HOSTS`: comma-separated names the Dot may `ssh` to. */
+export function sshHosts(env: Env): string[] {
+  const hosts = (env.SASACODE_SSH_HOSTS ?? '')
+    .split(',')
+    .map((host) => host.trim())
+    .filter(Boolean);
+  const bad = hosts.find((host) => !/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(host));
+  if (bad)
+    throw new Error(
+      `SASACODE_SSH_HOSTS has an invalid host name: ${JSON.stringify(bad)}.`,
+    );
+  return [...new Set(hosts)];
+}
+
 export function agentHarness(env: Env): 'builtin' | 'sasacode' {
   const value = env.AGENT_HARNESS?.trim() || 'builtin';
   if (value !== 'builtin' && value !== 'sasacode')
@@ -39,6 +53,7 @@ export interface SasacodeOptions {
   binary: string;
   home: string;
   workRoot: string;
+  sshHosts?: string[];
   appDir: string;
   port?: number;
   approvals?: ApprovalBroker;
@@ -65,6 +80,7 @@ export function createSasacode(options: SasacodeOptions) {
     binary: options.binary,
     home: options.home,
     workRoot: options.workRoot,
+    sshHosts: options.sshHosts,
     runs,
     sessions,
     planTurn: options.planTurn,
