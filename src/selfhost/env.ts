@@ -33,7 +33,13 @@ export function conversationBackend(
 
 function discordSettings(env: Env, client?: DiscordClientLike) {
   const settings = discordConfigFromEnv(env);
-  return settings && { ...settings, client };
+  return (
+    settings && {
+      ...settings,
+      routerCommands: modelRouterEnabled(env),
+      client,
+    }
+  );
 }
 
 export function modelRouterEnabled(env: Env): boolean {

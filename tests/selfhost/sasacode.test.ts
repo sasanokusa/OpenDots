@@ -552,6 +552,7 @@ describe('sasacodeConfig', () => {
 
   it('lets the model judge by default and keeps secrets out of reach', () => {
     expect(config.permissions.mode).toBe('agent');
+    expect(config.judgeModel).toBe(`opendots/${roles.worker.model}`);
     expect(sasacodeConfig({ ...options, mode: 'edits' }).permissions.mode).toBe(
       'edits',
     );

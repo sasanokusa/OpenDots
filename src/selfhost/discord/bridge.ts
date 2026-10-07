@@ -1,12 +1,16 @@
 import type { DatabaseSync } from 'node:sqlite';
 import {
   ActionRowBuilder,
+  ApplicationIntegrationType,
   ButtonBuilder,
   ButtonStyle,
   ChannelType,
   Client,
   GatewayIntentBits,
+  InteractionContextType,
+  MessageFlags,
   Partials,
+  SlashCommandBuilder,
 } from 'discord.js';
 import { safeFailure } from '../../server/slack-channel.js';
 import {
@@ -34,12 +38,21 @@ const TEXT = {
   newThread: '新しい会話を始めました。',
   noUrl: 'WebアプリのURLは未設定です（PUBLIC_APP_URL）。',
   help: [
-    '使えるコマンド',
+    '使えるコマンド（「/」を打つと候補が出ます）',
     '/new: 新しい会話を始める',
+    '/stop: 実行中の処理を止める',
     '/web: Webアプリを開くURLを返す',
     '/help: この一覧を表示する',
     'それ以外のメッセージはそのままエージェントに渡します。',
   ].join('\n'),
+  routerHelp: [
+    '/plan 依頼: 計画役（Pro）で受ける',
+    '/escalate 依頼: 計画役で受け、最初にSonnetに相談する',
+  ].join('\n'),
+  stopped: '実行中の処理を止めました。',
+  nothingToStop: '実行中の処理はありません。',
+  accepted: '受け付けました。',
+  ownerOnly: 'このボットはオーナー専用です。',
   approvalTitle: '**確認が必要です**',
   approvalReason: '理由',
   approvalThread: '会話',
@@ -95,6 +108,49 @@ export interface DiscordInteractionLike {
   customId: string;
   message?: { content: string };
   update(options: { content: string; components: [] }): Promise<unknown>;
+  /** Slash commands; check `isChatInputCommand()` first. */
+  isChatInputCommand?(): boolean;
+  commandName?: string;
+  channelId?: string | null;
+  channel?: DiscordChannelLike | null;
+  options?: { getString(name: string): string | null };
+  reply?(options: { content: string; flags?: number }): Promise<unknown>;
+}
+
+/** The slash commands offered in the bot's DM. */
+export function slashCommands(router: boolean) {
+  const dmOnly = (builder: SlashCommandBuilder) =>
+    builder
+      .setContexts(InteractionContextType.BotDM)
+      .setIntegrationTypes(ApplicationIntegrationType.GuildInstall);
+  const simple = (name: string, description: string) =>
+    dmOnly(new SlashCommandBuilder().setName(name).setDescription(description));
+  const withRequest = (name: string, description: string) => {
+    const builder = dmOnly(
+      new SlashCommandBuilder().setName(name).setDescription(description),
+    );
+    builder.addStringOption((option) =>
+      option
+        .setName('request')
+        .setNameLocalizations({ ja: '依頼' })
+        .setDescription('エージェントに渡す依頼')
+        .setRequired(true)
+        .setMaxLength(4000),
+    );
+    return builder;
+  };
+  return [
+    simple('new', '新しい会話を始める'),
+    simple('stop', '実行中の処理を止める'),
+    simple('web', 'Webアプリを開くURLを表示する'),
+    simple('help', '使い方を表示する'),
+    ...(router
+      ? [
+          withRequest('plan', '計画役（Pro）で依頼を受ける'),
+          withRequest('escalate', '計画役で受け、最初にSonnetに相談する'),
+        ]
+      : []),
+  ].map((builder) => builder.toJSON());
 }
 
 /** The slice of discord.js `Client` the bridge relies on. */
@@ -120,6 +176,11 @@ export interface DiscordClientLike {
   off(event: 'error', listener: (error: Error) => void): unknown;
   off(event: 'clientReady', listener: () => void): unknown;
   users: { fetch(userId: string): Promise<DiscordUserLike> };
+  /** Set once the client is ready; registers the slash commands. */
+  application?: {
+    commands: { set(commands: unknown[]): Promise<unknown> };
+  } | null;
+  channels?: { fetch(id: string): Promise<unknown> };
   login(token: string): Promise<unknown>;
   destroy(): Promise<void> | void;
 }
@@ -146,6 +207,8 @@ export interface DiscordBridgeOptions {
   events?: SelfhostEvents;
   /** Title of a conversation, shown in approval DMs. */
   threadTitle?: (threadId: string) => string | undefined;
+  /** Offer /plan and /escalate (only meaningful with MODEL_ROUTER=on). */
+  routerCommands?: boolean;
   client?: DiscordClientLike;
   now?: () => number;
 }
@@ -259,7 +322,24 @@ export class DiscordBridge {
       clearTimeout(timer);
       if (onReady) client.off('clientReady', onReady);
     }
-    if (!this.stopped) this.watchApprovals();
+    if (!this.stopped) {
+      this.watchApprovals();
+      await this.registerCommands();
+    }
+  }
+
+  /** Global commands limited to the bot's DM, so `/` shows them there. */
+  private async registerCommands() {
+    try {
+      await this.client.application?.commands.set(
+        slashCommands(!!this.options.routerCommands),
+      );
+    } catch (error) {
+      console.error(
+        'Discord slash command registration failed:',
+        safeFailure(error),
+      );
+    }
   }
 
   async stop(): Promise<void> {
@@ -365,8 +445,10 @@ export class DiscordBridge {
   private async handleInteraction(
     interaction: DiscordInteractionLike,
   ): Promise<void> {
+    if (this.stopped) return;
+    if (interaction.isChatInputCommand?.()) return this.command(interaction);
     const { approvals } = this.options;
-    if (this.stopped || !approvals) return;
+    if (!approvals) return;
     if (interaction.user.id !== this.options.ownerUserId) return;
     if (!interaction.isButton()) return;
     const match = APPROVAL_ID.exec(interaction.customId);
@@ -388,6 +470,77 @@ export class DiscordBridge {
       content: `${original}\n\n${outcome}`,
       components: [],
     });
+  }
+
+  /** Slash commands do what the typed text commands do. */
+  private async command(interaction: DiscordInteractionLike): Promise<void> {
+    const reply = (content: string, flags?: number) =>
+      interaction.reply?.({ content, ...(flags !== undefined && { flags }) });
+    if (interaction.user.id !== this.options.ownerUserId) {
+      await reply(TEXT.ownerOnly, MessageFlags.Ephemeral);
+      return;
+    }
+    const channelId = interaction.channelId;
+    const name = interaction.commandName;
+    if (!channelId || !name) return;
+    if (name === 'help') {
+      await reply(this.helpText());
+      return;
+    }
+    if (name === 'web') {
+      await reply(this.options.publicUrl ?? TEXT.noUrl);
+      return;
+    }
+    if (name === 'new') {
+      await reply(this.newThread(channelId));
+      return;
+    }
+    if (name === 'stop') {
+      await reply(this.stopRun(channelId));
+      return;
+    }
+    if (name !== 'plan' && name !== 'escalate') return;
+    const request = interaction.options?.getString('request')?.trim();
+    if (!request) return;
+    if (this.options.paused()) {
+      await reply(TEXT.paused);
+      return;
+    }
+    if (this.inFlight.has(channelId)) {
+      await reply(TEXT.busy);
+      return;
+    }
+    // Interactions must be answered within 3 seconds; the turn takes longer.
+    await reply(TEXT.accepted);
+    const channel =
+      interaction.channel ??
+      ((await this.client.channels?.fetch(channelId)) as
+        DiscordChannelLike | undefined);
+    if (!channel) return;
+    await this.runTurn(channel, channelId, `/${name} ${request}`);
+  }
+
+  private helpText(): string {
+    return this.options.routerCommands
+      ? `${TEXT.help}\n${TEXT.routerHelp}`
+      : TEXT.help;
+  }
+
+  private newThread(channelId: string): string {
+    try {
+      this.createMapped(channelId);
+      return TEXT.newThread;
+    } catch (error) {
+      console.error('Discord thread creation failed:', safeFailure(error));
+      return TEXT.failed;
+    }
+  }
+
+  private stopRun(channelId: string): string {
+    const run = this.inFlight.get(channelId);
+    if (!run) return TEXT.nothingToStop;
+    run.controller.abort();
+    return TEXT.stopped;
   }
 
   private onError = (error: Error) => {
@@ -414,18 +567,13 @@ export class DiscordBridge {
     }
 
     const command = text.split(/\s/, 1)[0]!.toLowerCase();
-    if (command === '/help') return this.reply(channel, TEXT.help);
+    if (command === '/help') return this.reply(channel, this.helpText());
     if (command === '/web')
       return this.reply(channel, this.options.publicUrl ?? TEXT.noUrl);
-    if (command === '/new') {
-      try {
-        this.createMapped(channelId);
-      } catch (error) {
-        console.error('Discord thread creation failed:', safeFailure(error));
-        return this.reply(channel, TEXT.failed);
-      }
-      return this.reply(channel, TEXT.newThread);
-    }
+    if (command === '/new')
+      return this.reply(channel, this.newThread(channelId));
+    if (command === '/stop')
+      return this.reply(channel, this.stopRun(channelId));
 
     if (this.options.paused()) return this.reply(channel, TEXT.paused);
     if (this.inFlight.has(channelId)) return this.reply(channel, TEXT.busy);

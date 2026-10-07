@@ -108,6 +108,8 @@ export function sasacodeConfig(options: SasacodeConfigOptions) {
   ];
   return {
     model: `${PROVIDER}/${roles.chat.model}`,
+    // agent mode asks a fast, cheap model whether each unlisted call is safe.
+    judgeModel: `${PROVIDER}/${roles.worker.model}`,
     providers: {
       [PROVIDER]: {
         api: 'openai-chat',

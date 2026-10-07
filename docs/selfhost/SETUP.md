@@ -102,7 +102,7 @@ Dot Computerを使う場合は、`docs/COMPUTERS.md`に従ってsupervisorをDoc
 
 - bashはサーバーの上で直接、アプリと同じユーザーで動きます。sudoは使えません。
 - 読むだけのコマンド（`uptime`、`df`、`free`、`systemctl status`、`journalctl -u`、`docker ps`など）は確認なしで動きます。一覧は`src/selfhost/sasacode/config.ts`の`READ_ONLY_COMMANDS`です。`;`や`|`でつないだコマンドは、全部が一覧に当てはまるときだけ通ります。
-- それ以外は、既定ではsasacodeのagentモードでモデルが1件ずつ安全かを判定し、危ないと判断したものだけ承認を求めます。Webの会話画面に出るカードか、DiscordのDMに届くボタンで「許可」か「拒否」を選びます。先に答えたほうが有効で、5分答えがなければ拒否になります。
+- それ以外は、既定ではsasacodeのagentモードでモデルが1件ずつ安全かを判定し、危ないと判断したものだけ承認を求めます。判定には速くて安いDeepSeek V4.1 Flash（ワーカー役のモデル）を使い、費用はワーカー役として記録されます。Webの会話画面に出るカードか、DiscordのDMに届くボタンで「許可」か「拒否」を選びます。先に答えたほうが有効で、5分答えがなければ拒否になります。
 - 判定のしかたは`SASACODE_PERMISSION`で変えられます。`agent`（既定、モデルが判定）、`edits`（作業ディレクトリ内の読み書きだけ確認なし、ほかはすべて承認）、`ask`（すべて承認）、`auto`（禁止ルール以外はすべて実行）です。
 - `.env`、`~/.ssh`、`~/.config`、トークンやAPIキーを含むコマンドは、読み書きとも禁止しています。
 
@@ -185,7 +185,7 @@ DISCORD_OWNER_USER_ID=手順5のID
 # PUBLIC_APP_URL=      スマホからアプリを開くURL
 ```
 
-Botのプロフィールを開いてメッセージを送ると、返信が届きます。コマンドは`/new`（新しい会話にする）、`/web`（`PUBLIC_APP_URL`を返す）、`/help`です。DMのチャンネル1つにWebの会話1つが対応し、Webの一覧には「Discord DM」という名前で出るので、続きをWebでも読めます。テキストのメッセージだけ受け付けます。ページのレビューのように承認が要る操作はDiscordでは行えません。`PUBLIC_APP_URL`を設定していれば、Webで承認するよう、そのURLを添えて返します。起動に失敗すると、サーバーのログに`A self-host service failed to start`と出ます。トークンの貼り間違いを最初に疑ってください。
+Botのプロフィールを開いてメッセージを送ると、返信が届きます。コマンドは`/new`（新しい会話にする）、`/stop`（実行中の処理を止める）、`/web`（`PUBLIC_APP_URL`を返す）、`/help`です。起動のたびにスラッシュコマンドとしてDiscordに登録するので、DMで「/」を打つと候補が出ます。`MODEL_ROUTER=on`のときは`/plan`と`/escalate`も出ます。打ち込んだ文字の`/new`なども、これまでどおり使えます。DMのチャンネル1つにWebの会話1つが対応し、Webの一覧には「Discord DM」という名前で出るので、続きをWebでも読めます。テキストのメッセージだけ受け付けます。ページのレビューのように承認が要る操作はDiscordでは行えません。`PUBLIC_APP_URL`を設定していれば、Webで承認するよう、そのURLを添えて返します。起動に失敗すると、サーバーのログに`A self-host service failed to start`と出ます。トークンの貼り間違いを最初に疑ってください。
 
 同じトークンでサーバーを2か所（たとえばsaserverと手元のMac）で動かすと、両方がDMに返信して返事が二重になります。手元の`.env`にトークンを書いたまま開発サーバーを動かすときは、`DISCORD_BOT_TOKEN= DISCORD_OWNER_USER_ID= npm run dev`のように空の値を前に付けて起動してください。コマンドの前に付けた値は、`.env`の値より優先されます。
 

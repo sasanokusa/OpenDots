@@ -22,6 +22,8 @@ export interface DiscordSettings {
   ownerUserId: string;
   dotId?: string;
   publicUrl?: string;
+  /** Offer /plan and /escalate in the DM (MODEL_ROUTER=on). */
+  routerCommands?: boolean;
   /** Test seam. */
   client?: DiscordClientLike;
 }
@@ -139,6 +141,7 @@ export function createSelfhostBackend({
           dotId,
           db,
           publicUrl: discord.publicUrl,
+          routerCommands: discord.routerCommands,
           approvals: backend.approvals,
           events,
           threadTitle: (threadId) =>
