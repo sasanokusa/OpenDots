@@ -4696,3 +4696,60 @@ html:lang(ja) .template-app .thread-summary small {
     font-size: 13px;
   }
 }
+/* selfhost: keep the page chat inside the viewport */
+.workspace:has(> .spaces-surface.writing) {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+}
+.document-chat-panel .live-chat {
+  flex: 1;
+  min-height: 0;
+}
+/* On short screens the transcript gives up its space first, then the
+   approval command, then the card scrolls; the composer stays in view. */
+.document-chat-panel .chat-transcript {
+  min-height: 0;
+}
+.document-chat-panel .approval-card {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.document-chat-panel .approval-card > * {
+  flex-shrink: 0;
+}
+.document-chat-panel .approval-summary {
+  flex-shrink: 1;
+  min-height: 3.3em;
+}
+@media (max-height: 760px) {
+  .document-chat-panel .live-chat .chat-persona {
+    justify-content: flex-start;
+    min-height: auto;
+    padding-block: 8px;
+  }
+  .document-chat-panel .chat-persona .mascot {
+    width: 36px;
+    height: 36px;
+  }
+  .document-chat-panel .chat-persona .chat-persona-actions {
+    position: static;
+    margin-left: auto;
+  }
+}
+@media (max-width: 900px) {
+  .document-session.chat-visible .document-assistant.open {
+    flex: none;
+    height: 100%;
+    min-height: 420px;
+  }
+  /* Chat scrolls this sentinel into view; the margin also brings the
+     composer below the transcript into the stacked page's scroll. */
+  .document-chat-panel .chat-transcript > :last-child {
+    scroll-margin-bottom: 100vh;
+  }
+}
