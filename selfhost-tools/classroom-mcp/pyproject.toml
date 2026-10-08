@@ -1,0 +1,14 @@
+[project]
+name = "opendots-classroom-mcp"
+version = "0.1.0"
+description = "Read-only Google Classroom MCP server for an OpenDots Dot"
+requires-python = ">=3.12"
+dependencies = [
+  "fastmcp==4.0.11",
+  "google-api-python-client==2.201.0",
+  "google-auth==2.60.0",
+  "google-auth-oauthlib==1.5.0",
+]
+
+[tool.uv]
+package = false
