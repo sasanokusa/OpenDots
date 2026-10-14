@@ -235,6 +235,9 @@ def recent_announcements(days: int = 7, course_id: str | None = None) -> list[di
 
 
 def authorize() -> None:
+    # Google reports coursework.me.readonly under its older name,
+    # student-submissions.me.readonly; oauthlib would reject that as a change.
+    os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
     port = int(os.environ.get("CLASSROOM_AUTH_PORT", "8818"))
     flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRET, SCOPES)
     creds = flow.run_local_server(
