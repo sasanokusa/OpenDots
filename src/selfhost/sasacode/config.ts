@@ -16,6 +16,7 @@ export const OPENDOTS_TOOLS = [
   'create_space_page',
   'edit_space_page',
   'review_space_page',
+  'list_memories',
   'search_web',
   'read_public_page',
   'delegate_tasks',

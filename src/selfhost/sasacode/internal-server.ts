@@ -31,15 +31,58 @@ function text(value: unknown, isError = false): CallToolResult {
   };
 }
 
+type JsonSchema = { type?: unknown; anyOf?: unknown; oneOf?: unknown };
+
+/** What the model may send: fields with a default are optional, not required. */
 function inputSchema(tool: ToolDefinition) {
-  return z.toJSONSchema(tool.parameters as z.ZodType) as {
+  return z.toJSONSchema(tool.parameters as z.ZodType, { io: 'input' }) as {
     type: 'object';
+    properties?: Record<string, JsonSchema>;
+    required?: string[];
     [key: string]: unknown;
   };
 }
 
+function admitsNull(schema: JsonSchema | undefined): boolean {
+  if (!schema) return false;
+  const { type } = schema;
+  if (type === 'null' || (Array.isArray(type) && type.includes('null')))
+    return true;
+  return [schema.anyOf, schema.oneOf].some(
+    (options) =>
+      Array.isArray(options) &&
+      options.some((option) => admitsNull(option as JsonSchema)),
+  );
+}
+
+/**
+ * Models often write null as the string "null" (or leave it blank). For a
+ * field that accepts null, that means null; for an optional one, "null"
+ * means leaving it out. Other strings pass through untouched.
+ */
+function normalizeArgs(tool: ToolDefinition, args: unknown): unknown {
+  if (!args || typeof args !== 'object' || Array.isArray(args)) return args;
+  const schema = inputSchema(tool);
+  const required = new Set(schema.required ?? []);
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(args)) {
+    const word = typeof value === 'string' ? value.trim().toLowerCase() : null;
+    if (word === 'null' || word === '') {
+      if (admitsNull(schema.properties?.[key])) {
+        out[key] = null;
+        continue;
+      }
+      if (word === 'null' && !required.has(key)) continue;
+    }
+    out[key] = value;
+  }
+  return out;
+}
+
 async function validate(tool: ToolDefinition, args: unknown) {
-  const result = await tool.parameters['~standard'].validate(args ?? {});
+  const result = await tool.parameters['~standard'].validate(
+    normalizeArgs(tool, args ?? {}),
+  );
   if (result.issues)
     throw new Error(
       `Invalid arguments: ${result.issues.map((issue) => issue.message).join('; ')}`,

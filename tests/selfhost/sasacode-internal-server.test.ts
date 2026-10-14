@@ -1,7 +1,10 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import { defineTool } from '@copilotkit/runtime/v2';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
+import { pageInput, pagePatch } from '../../src/server/pages.js';
 import { pageReviewTool } from '../../src/shared/page-review.js';
 import { roles } from '../../src/selfhost/config/models.js';
 import { CommandCodeClient } from '../../src/selfhost/llm/commandcode.js';
@@ -368,6 +371,78 @@ describe('/mcp', () => {
       properties: { text: { type: 'string' } },
       required: ['text'],
     });
+  });
+
+  it('lets the model omit defaulted fields and write null as "null"', async () => {
+    const created: unknown[] = [];
+    const edited: unknown[] = [];
+    const tools = [
+      defineTool({
+        name: 'create_space_page',
+        description: 'Create a page.',
+        parameters: pageInput.extend({ spaceId: z.string().optional() }),
+        execute: async (input) => {
+          created.push(input);
+          return 'ok';
+        },
+      }),
+      defineTool({
+        name: 'edit_space_page',
+        description: 'Edit a page.',
+        parameters: pagePatch.extend({ id: z.string() }),
+        execute: async (input) => {
+          edited.push(input);
+          return 'ok';
+        },
+      }),
+    ];
+    const client = await connect(runs.open(sasacodeRun({ tools })));
+    const listed = (await client.listTools()).tools;
+    expect(
+      listed.find((tool) => tool.name === 'create_space_page')?.inputSchema
+        .required,
+    ).toEqual(['title']);
+    expect(
+      listed.find((tool) => tool.name === 'edit_space_page')?.inputSchema
+        .required,
+    ).toEqual(['expectedRevision', 'id']);
+
+    for (const extra of [
+      {},
+      { parentId: 'null' },
+      { parentId: ' ' },
+      { parentId: 'NULL', spaceId: 'null' },
+    ]) {
+      const result = await client.callTool({
+        name: 'create_space_page',
+        arguments: { title: 'Memo', ...extra },
+      });
+      expect(result.isError).toBeUndefined();
+    }
+    expect(created).toEqual(
+      Array(4).fill({ title: 'Memo', content: '', parentId: null }),
+    );
+
+    // Only nullable fields turn into null; a blank content stays a blank.
+    await client.callTool({
+      name: 'edit_space_page',
+      arguments: {
+        id: 'p1',
+        expectedRevision: 2,
+        parentId: 'null',
+        content: '',
+      },
+    });
+    expect(edited).toEqual([
+      { id: 'p1', expectedRevision: 2, parentId: null, content: '' },
+    ]);
+    // A required field keeps the literal string.
+    const named = await client.callTool({
+      name: 'create_space_page',
+      arguments: { title: 'null' },
+    });
+    expect(named.isError).toBeUndefined();
+    expect(created.at(-1)).toMatchObject({ title: 'null' });
   });
 
   it('serves each run its own tools', async () => {

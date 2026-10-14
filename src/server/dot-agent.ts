@@ -6,6 +6,7 @@ import { ConnectionService } from './connections.js';
 import { connectionTools } from './connection-tools.js';
 import { connectionActionTool } from '../shared/connection-types.js';
 import { pageAccess, pageTools } from './page-tools.js';
+import { memoryTools } from '../selfhost/agents/memory.js';
 import { AbstractAgent } from '@ag-ui/client';
 import { type BaseEvent, type RunAgentInput, EventType } from '@ag-ui/core';
 import {
@@ -316,6 +317,11 @@ export class DotAgent extends AbstractAgent {
         const serverTools = [
           ...tools,
           ...pageTools(pages),
+          ...(this.config.selfhost &&
+          initialSettings.memoryAllowed &&
+          dot.memoryAllowed
+            ? memoryTools(this.store, check)
+            : []),
           ...(computer.configured
             ? computerTools(computer, dot.id, check, controller.signal)
             : []),
