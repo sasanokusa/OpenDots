@@ -100,6 +100,13 @@ def due_at(work: dict[str, Any]) -> datetime | None:
     ).astimezone(LOCAL)
 
 
+def posted_at(work: dict[str, Any]) -> datetime | None:
+    created = work.get("creationTime")
+    if not created:
+        return None
+    return datetime.fromisoformat(created.replace("Z", "+00:00")).astimezone(LOCAL)
+
+
 def active_courses(service) -> list[dict[str, Any]]:
     return pages(
         lambda token: service.courses().list(
@@ -131,13 +138,16 @@ def list_assignments(
     course_id: str | None = None,
     include_done: bool = False,
     overdue_days: int = 30,
+    undated_days: int = 30,
 ) -> list[dict[str, Any]]:
     """Coursework with due dates and the owner's own submission state.
 
     By default only work not yet turned in, including overdue work from the
-    last `overdue_days` days, ordered by due date (undated last). States:
-    NEW/CREATED = not submitted, TURNED_IN = submitted, RETURNED = graded and
-    returned, RECLAIMED_BY_STUDENT = unsubmitted again.
+    last `overdue_days` days, ordered by due date (undated last). Work without
+    a due date is included only if posted in the last `undated_days` days;
+    older undated posts are mostly handouts. States: NEW/CREATED = not
+    submitted, TURNED_IN = submitted, RETURNED = graded and returned,
+    RECLAIMED_BY_STUDENT = unsubmitted again.
     """
     service = classroom()
     courses = active_courses(service)
@@ -145,6 +155,7 @@ def list_assignments(
         courses = [course for course in courses if course["id"] == course_id]
     now = datetime.now(LOCAL)
     oldest = now - timedelta(days=max(overdue_days, 0))
+    oldest_undated = now - timedelta(days=max(undated_days, 0))
     rows: list[dict[str, Any]] = []
     for course in courses:
         works = pages(
@@ -182,13 +193,17 @@ def list_assignments(
             due = due_at(work)
             if not include_done and state in DONE:
                 continue
+            posted = posted_at(work)
             if not include_done and due and due < oldest:
+                continue
+            if not include_done and not due and posted and posted < oldest_undated:
                 continue
             rows.append(
                 {
                     "course": course.get("name"),
                     "title": work.get("title"),
                     "due": due.isoformat(timespec="minutes") if due else None,
+                    "posted": posted.isoformat(timespec="minutes") if posted else None,
                     "overdue": bool(due and due < now and state not in DONE),
                     "state": state,
                     "late": submission.get("late", False),
