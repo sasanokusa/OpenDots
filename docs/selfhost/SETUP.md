@@ -89,6 +89,8 @@ Dot Computerを使う場合は、`docs/COMPUTERS.md`に従ってsupervisorをDoc
 - sasacodeのモデル呼び出しは、アプリが127.0.0.1だけで開く中継を通ってCommandCodeに届きます。使用量の記録と枠のポリシーはこれまでどおり効き、CommandCodeのキーはsasacodeに渡りません。
 - ページ操作、承認カード、ワーカーへの委任、Sonnetへの相談は、同じ中継のMCPでsasacodeに渡します。Spaceの権限はアプリ側で確かめます。
 - 会話1つにsasacodeのセッション1つが対応します（`sh_sasacode_sessions`テーブル）。作業ディレクトリはDotごとです。
+- Dotは「記憶」（Webの「記憶」画面と同じ一覧）を自分で読み書きできます（`list_memories`・`save_memory`・`delete_memory`）。記憶はすべての会話にPreferencesとして入るので、朝のまとめから外すものなど、続けて守ってほしい決めごとを置く場所です。一覧は確認なしで読めます。保存と削除は下のagentモードの判定を通ります。設定とDotの「記憶」がオフのときは使えません。全部で50件までです。
+- Webのページは、sasacode同梱の`web_fetch`で読めます（判定を通ります）。Web検索は、`WEB_SEARCH_PROVIDER`の検索サービスが要ります。CommandCodeのGOATプランのモデルには検索が付いていません。
 
 | 変数                     | 既定                                  | 内容                                                                    |
 | ------------------------ | ------------------------------------- | ----------------------------------------------------------------------- |
@@ -140,6 +142,15 @@ saserverでは[google_workspace_mcp](https://github.com/taylorwilsdon/google_wor
 - Google Cloudの同意画面は「本番環境」にしておきます。「テスト」のままだと、7日で許可が切れます。
 - 初回の許可は、Macから`ssh -N -L 127.0.0.1:8817:127.0.0.1:8817 saserver`で中継してから、ツールを呼んで返ってくるURLをMacのブラウザで開きます。許可後のリダイレクト先`http://localhost:8817/oauth2callback`が、この中継でsaserverに届きます。
 - Dotの接続には、URL`http://127.0.0.1:8817/mcp`をトークンなしで登録します。
+
+### Google Classroom（学校アカウントの課題）
+
+課題の締切と提出状況は、読むだけの小さなMCPサーバー`selfhost-tools/classroom-mcp`で読みます。ツールは`list_courses`、`list_assignments`（未提出と期限切れ、提出状態つき）、`recent_announcements`の3つです。
+
+- saserverでは`opendots-classroom.service`として127.0.0.1:8819で動かしています。Pythonの環境は`/mnt/ssd/opendots/classroom-venv`、設定は`/mnt/ssd/opendots/google/classroom.env`（`CLASSROOM_ACCOUNT`、`GOOGLE_CLIENT_SECRET_PATH`、`CLASSROOM_TOKEN_DIR`など）です。OAuthクライアントはGoogleの接続と同じものを使います。
+- Google Cloudで「Google Classroom API」を有効にしておきます。
+- 初回の許可は、Macから`ssh -N -L 127.0.0.1:8818:127.0.0.1:8818 saserver`で中継してから、saserverで`server.py auth`を動かし、表示されたURLをMacのブラウザで開きます。許可情報は`CLASSROOM_TOKEN_DIR`に保存されます。
+- Dotの接続には、URL`http://127.0.0.1:8819/mcp`をトークンなしで登録します。
 
 ### GitHub
 
