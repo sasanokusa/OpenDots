@@ -90,7 +90,7 @@ Dot Computerを使う場合は、`docs/COMPUTERS.md`に従ってsupervisorをDoc
 - ページ操作、承認カード、ワーカーへの委任、Sonnetへの相談は、同じ中継のMCPでsasacodeに渡します。Spaceの権限はアプリ側で確かめます。
 - 会話1つにsasacodeのセッション1つが対応します（`sh_sasacode_sessions`テーブル）。作業ディレクトリはDotごとです。
 - Dotは「記憶」（Webの「記憶」画面と同じ一覧）を自分で読み書きできます（`list_memories`・`save_memory`・`delete_memory`）。記憶はすべての会話にPreferencesとして入るので、朝のまとめから外すものなど、続けて守ってほしい決めごとを置く場所です。一覧は確認なしで読めます。保存と削除は下のagentモードの判定を通ります（`AGENT_HARNESS=builtin`のときは判定なしで動きます）。設定とDotの「記憶」がオフのときは使えません。全部で50件までです。
-- Webのページは、sasacode同梱の`web_fetch`で読めます（判定を通ります）。Web検索は、`WEB_SEARCH_PROVIDER`の検索サービスが要ります。CommandCodeのGOATプランのモデルには検索が付いていません。
+- Web検索とページの読み込みは、下の「Web検索」のサーバーを通る`search_web`と`read_public_page`で行います（確認なし）。sasacode同梱の`web_fetch`も使えますが、判定を通ります。
 
 | 変数                     | 既定                                  | 内容                                                                    |
 | ------------------------ | ------------------------------------- | ----------------------------------------------------------------------- |
@@ -151,6 +151,16 @@ saserverでは[google_workspace_mcp](https://github.com/taylorwilsdon/google_wor
 - Google Cloudで「Google Classroom API」を有効にしておきます。
 - 初回の許可は、Macから`ssh -N -L 127.0.0.1:8818:127.0.0.1:8818 saserver`で中継してから、saserverで`server.py auth`を動かし、表示されたURLをMacのブラウザで開きます。許可情報は`CLASSROOM_TOKEN_DIR`に保存されます。
 - Dotの接続には、URL`http://127.0.0.1:8819/mcp`をトークンなしで登録します。
+
+### Web検索（free-search-mcp）
+
+CommandCodeのGOATプランのモデルには検索が付いていないので、APIキーの要らない[free-search-mcp](https://github.com/sweetcornna/free-search-mcp)（0.13.1）を使います。複数の検索エンジン（DuckDuckGo、Bing、Mojeekなど）にまとめて問い合わせ、ページをMarkdownにして返します。
+
+- saserverでは`uv tool install free-search-mcp==0.13.1 --with "selectolax<1.0"`で`/mnt/ssd/opendots/uv-tools`に入れ、`opendots-search.service`として127.0.0.1:8820で動かしています。0.13.1はselectolax 1.0と組み合わせると検索が動かないので、1.0未満に固定しています。
+- ファイルの保存（`download`）は切ってあり、ローカルファイルの読み込みも設定していません。127.0.0.1や社内向けのアドレスは読みに行きません（`SEARCH_MCP_ALLOW_PRIVATE_HOSTS=false`）。キャッシュは`/mnt/ssd/opendots/search`です。
+- `.env`に`WEB_SEARCH_MCP_URL=http://127.0.0.1:8820/mcp`を書くと、`WEB_SEARCH_PROVIDER=disabled`のままでも、本家と同じ名前の`search_web`と`read_public_page`がこのサーバーにつながります。委任されたワーカーも、Webが要る作業ではこの2つを使えます。設定とDotの「調べもの」がオフのときは使えません。
+- Dotの接続にも、URL`http://127.0.0.1:8820/mcp`を「Web」として登録してあります。`research`（検索と上位ページの読み込みを1回で）、`compare`、`read_doc`、論文の引用をたどる`paper_graph`なども使えます。
+- JavaScriptで描くページ用のChromiumは入れていません。要るときは`PLAYWRIGHT_BROWSERS_PATH=/mnt/ssd/opendots/search/browsers`で`playwright install chromium`を実行します（足りないライブラリを入れるのにsudoが要ることがあります）。
 
 ### GitHub
 

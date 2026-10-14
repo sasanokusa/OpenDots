@@ -48,6 +48,21 @@ function discordSettings(env: Env, client?: DiscordClientLike) {
   );
 }
 
+/** `WEB_SEARCH_MCP_URL`: a free-search-mcp server for search_web. */
+export function webSearchUrl(env: Env): string | undefined {
+  const value = env.WEB_SEARCH_MCP_URL?.trim();
+  if (!value) return undefined;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error('WEB_SEARCH_MCP_URL must be an http(s) URL.');
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:')
+    throw new Error('WEB_SEARCH_MCP_URL must be an http(s) URL.');
+  return value;
+}
+
 export function modelRouterEnabled(env: Env): boolean {
   const value = env.MODEL_ROUTER?.trim() ?? 'off';
   if (value !== 'on' && value !== 'off')
@@ -99,6 +114,7 @@ export function enableSelfhost(
   });
   config.selfhost = {
     turnTimeLimitMs: positiveInt(env, 'TURN_TIME_LIMIT_MS', turn.timeLimitMs),
+    webSearchUrl: webSearchUrl(env),
   };
   if (config.apiKey && config.model) {
     const client = new CommandCodeClient({

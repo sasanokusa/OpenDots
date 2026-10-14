@@ -7,6 +7,7 @@ import { connectionTools } from './connection-tools.js';
 import { connectionActionTool } from '../shared/connection-types.js';
 import { pageAccess, pageTools } from './page-tools.js';
 import { memoryTools } from '../selfhost/agents/memory.js';
+import { webSearchTools } from '../selfhost/agents/web-search.js';
 import { AbstractAgent } from '@ag-ui/client';
 import { type BaseEvent, type RunAgentInput, EventType } from '@ag-ui/core';
 import {
@@ -321,6 +322,18 @@ export class DotAgent extends AbstractAgent {
           initialSettings.memoryAllowed &&
           dot.memoryAllowed
             ? memoryTools(this.store, check)
+            : []),
+          ...(this.config.selfhost?.webSearchUrl &&
+          dot.researchAllowed &&
+          initialSettings.researchAllowed
+            ? webSearchTools({
+                url: this.config.selfhost.webSearchUrl,
+                check,
+                signal: controller.signal,
+                allowed: () => this.store.settings().researchAllowed,
+              }).filter(
+                (tool) => !tools.some((given) => given.name === tool.name),
+              )
             : []),
           ...(computer.configured
             ? computerTools(computer, dot.id, check, controller.signal)

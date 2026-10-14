@@ -53,4 +53,6 @@ export interface SelfhostAgentHooks {
   planTurn?: (input: TurnPlanInput) => Promise<TurnPlan>;
   /** When set, this drives the turn (sasacode) instead of TanStack AI. */
   runHarness?: (input: HarnessRunInput) => AsyncIterable<BaseEvent>;
+  /** free-search-mcp endpoint behind search_web when no provider is set. */
+  webSearchUrl?: string;
 }
