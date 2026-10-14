@@ -89,7 +89,7 @@ Dot Computerを使う場合は、`docs/COMPUTERS.md`に従ってsupervisorをDoc
 - sasacodeのモデル呼び出しは、アプリが127.0.0.1だけで開く中継を通ってCommandCodeに届きます。使用量の記録と枠のポリシーはこれまでどおり効き、CommandCodeのキーはsasacodeに渡りません。
 - ページ操作、承認カード、ワーカーへの委任、Sonnetへの相談は、同じ中継のMCPでsasacodeに渡します。Spaceの権限はアプリ側で確かめます。
 - 会話1つにsasacodeのセッション1つが対応します（`sh_sasacode_sessions`テーブル）。作業ディレクトリはDotごとです。
-- Dotは「記憶」（Webの「記憶」画面と同じ一覧）を自分で読み書きできます（`list_memories`・`save_memory`・`delete_memory`）。記憶はすべての会話にPreferencesとして入るので、朝のまとめから外すものなど、続けて守ってほしい決めごとを置く場所です。一覧は確認なしで読めます。保存と削除は下のagentモードの判定を通ります（`AGENT_HARNESS=builtin`のときは判定なしで動きます）。設定とDotの「記憶」がオフのときは使えません。全部で50件までです。
+- Dotは「記憶」（Webの「記憶」画面と同じ一覧）を自分で読み書きできます（`list_memories`・`save_memory`・`delete_memory`）。記憶はすべての会話にPreferencesとして入るので、朝のまとめから外すものなど、続けて守ってほしい決めごとを置く場所です。一覧と保存は確認なしで動きます（保存したものは「記憶」画面で見直せます）。削除は下のagentモードの判定を通ります（`AGENT_HARNESS=builtin`のときは判定なしで動きます）。設定とDotの「記憶」がオフのときは使えません。全部で50件までです。
 - Web検索とページの読み込みは、下の「Web検索」のサーバーを通る`search_web`と`read_public_page`で行います（確認なし）。sasacode同梱の`web_fetch`も使えますが、判定を通ります。
 
 | 変数                     | 既定                                  | 内容                                                                    |
