@@ -493,6 +493,15 @@ describe('environmentNote', () => {
     expect(note).toContain('`ssh <host> <command>`');
     expect(note).toContain('sudo is not available there either');
   });
+
+  it('tells the Dot that connected services stay with it, not its workers', () => {
+    const note = environmentNote('/srv/dots/dot-1', [], ['Google', 'Web']);
+    expect(note).toContain('Connected services: Google, Web.');
+    expect(note).toContain('gather from these services yourself');
+    expect(environmentNote('/srv/dots/dot-1')).not.toContain(
+      'Connected services',
+    );
+  });
 });
 
 describe('sshHosts', () => {
