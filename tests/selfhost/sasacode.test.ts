@@ -542,16 +542,22 @@ describe('sasacodeConfig', () => {
     expect(config.model).toBe(`opendots/${roles.chat.model}`);
   });
 
-  it('describes the three turn models with their prices', () => {
+  it('describes each turn model once, with its price', () => {
+    const turnRoles = [roles.chat, roles.planner, roles.worker];
     expect(Object.keys(config.modelOverrides).sort()).toEqual(
-      [roles.chat.model, roles.planner.model, roles.worker.model]
+      [...new Set(turnRoles.map((role) => role.model))]
         .map((model) => `opendots/${model}`)
         .sort(),
     );
     const flash = config.modelOverrides[`opendots/${roles.chat.model}`];
     expect(flash).toMatchObject({
       contextWindow: 131_072,
-      maxOutput: roles.chat.maxOutputTokens,
+      // A model shared by several roles gets the largest output budget.
+      maxOutput: Math.max(
+        ...turnRoles
+          .filter((role) => role.model === roles.chat.model)
+          .map((role) => role.maxOutputTokens ?? 8000),
+      ),
       reasoning: true,
       price: {
         input: prices[roles.chat.model].inputPerM,
@@ -729,10 +735,23 @@ describe('permissionMode', () => {
 
 describe('roleForModel', () => {
   it('allows the model of each turn role', () => {
-    const run = sasacodeRun({ role: 'worker', model: roles.worker.model });
-    expect(roleForModel(roles.chat.model, run)).toBe('chat');
+    const run = sasacodeRun({ role: 'chat', model: 'vendor/special-model' });
     expect(roleForModel(roles.planner.model, run)).toBe('planner');
     expect(roleForModel(roles.worker.model, run)).toBe('worker');
+    // The chat model is the worker's too, so outside chat runs it is the worker's.
+    expect(roleForModel(roles.chat.model, run)).toBe(
+      roles.chat.model === roles.worker.model ? 'worker' : 'chat',
+    );
+  });
+
+  it("charges the safety judge's model to the worker unless it is the run's own", () => {
+    const planner = sasacodeRun({
+      role: 'planner',
+      model: roles.planner.model,
+    });
+    expect(roleForModel(roles.worker.model, planner)).toBe('worker');
+    const chat = sasacodeRun({ role: 'chat', model: roles.chat.model });
+    expect(roleForModel(roles.chat.model, chat)).toBe('chat');
   });
 
   it("allows the run's own model under the run's role", () => {

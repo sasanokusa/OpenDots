@@ -10,6 +10,7 @@ import { enableSelfhost } from '../../src/selfhost/env.js';
 import { selfhostRoutes } from '../../src/selfhost/routes.js';
 import type { SelfhostBackend } from '../../src/selfhost/index.js';
 import { roles } from '../../src/selfhost/config/models.js';
+import { WORKER_PROMPT } from '../../src/selfhost/agents/delegate.js';
 import {
   startFakeCommandCode,
   type FakeChatReply,
@@ -82,6 +83,13 @@ const chatModels = () =>
   fake.requests
     .filter((request) => request.path === '/chat/completions')
     .map((request) => request.body.model);
+// Chat and worker may share a model, so a worker call is told by its prompt.
+const isWorker = (body: any) =>
+  JSON.stringify(body.messages).includes(WORKER_PROMPT.slice(0, 40));
+const workerCalls = () =>
+  fake.requests.filter(
+    (request) => request.path === '/chat/completions' && isWorker(request.body),
+  );
 
 function jevAnswers(
   route: Record<string, number>,
@@ -249,7 +257,7 @@ it('lets the chat role delegate to a worker and relay the result', async () => {
   const thread = await platform.createConversation(dot.id, 'Delegation');
   jevAnswers({ chat: 0.9, planner: 0.05, worker: 0.05 });
   fake.onChat((body): FakeChatReply => {
-    if (body.model === roles.worker.model) return { content: 'found 3 items' };
+    if (isWorker(body)) return { content: 'found 3 items' };
     if (/Write a title/.test(JSON.stringify(body.messages)))
       return { content: 't' };
     return hasToolResult(body)
@@ -269,7 +277,10 @@ it('lets the chat role delegate to a worker and relay the result', async () => {
     platform.turn(thread.id, '数えて', new AbortController().signal),
   ).resolves.toBe('Done: true');
   const flashTools = fake.requests
-    .find((r) => r.body?.model === roles.chat.model)!
+    .find(
+      (r) =>
+        r.body?.model === roles.chat.model && r.body.tools && !isWorker(r.body),
+    )!
     .body.tools.map((t: any) => t.function.name);
   expect(flashTools).toEqual(
     expect.arrayContaining(['delegate_tasks', 'handover_to_planner']),
@@ -310,7 +321,7 @@ it('forces a handover when chat tries three tasks, and runs the planner', async 
     platform.turn(thread.id, '三つやって', new AbortController().signal),
   ).resolves.toBe('relayed: true');
   expect(chatModels()).toContain(roles.planner.model);
-  expect(chatModels()).not.toContain(roles.worker.model);
+  expect(workerCalls()).toEqual([]);
   const log = (platform.config.selfhost!.planTurn as any).log.recent();
   expect(log[0]).toMatchObject({ final_role: 'chat', handed_over: 1 });
 });
@@ -343,7 +354,7 @@ it('refuses chat delegation that Jev flags as high impact', async () => {
   await expect(
     platform.turn(thread.id, 'まとめて', new AbortController().signal),
   ).resolves.toBe('blocked');
-  expect(chatModels()).not.toContain(roles.worker.model);
+  expect(workerCalls()).toEqual([]);
 });
 
 it('escalates to Sonnet on /escalate without calling Jev', async () => {

@@ -27,7 +27,7 @@ export interface TurnPlanInput {
 
 export interface TurnPlan {
   role: RoleName;
-  /** CommandCode model id for this role, e.g. `xiaomi/mimo-v2.6-flash`. */
+  /** CommandCode model id for this role, e.g. `deepseek/deepseek-v4.1-flash`. */
   model: string;
   adapter: ChatAdapter;
   tools: ToolDefinition[];

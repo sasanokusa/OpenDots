@@ -231,28 +231,27 @@ describe('POST /llm/v1/chat/completions', () => {
     const token = runs.open(
       sasacodeRun({ role: 'worker', model: 'vendor/special-model' }),
     );
-    for (const model of [
-      roles.planner.model,
-      roles.worker.model,
-      roles.chat.model,
+    const models = [
+      ...new Set([roles.planner.model, roles.worker.model, roles.chat.model]),
       'vendor/special-model',
-    ])
+    ];
+    for (const model of models)
       expect(
         (await post('/llm/v1/chat/completions', token, chatBody(model))).status,
       ).toBe(200);
-    await recorder.settled(4);
+    await recorder.settled(models.length);
+    const expected = new Map<string, string>([
+      [roles.chat.model, 'chat'],
+      [roles.planner.model, 'planner'],
+      // A model shared with the worker counts as the worker's.
+      [roles.worker.model, 'worker'],
+      ['vendor/special-model', 'worker'],
+    ]);
     expect(
       recorder.records
         .map((record) => [record.model, record.role])
         .sort(([a], [b]) => a.localeCompare(b)),
-    ).toEqual(
-      [
-        [roles.planner.model, 'planner'],
-        [roles.worker.model, 'worker'],
-        [roles.chat.model, 'chat'],
-        ['vendor/special-model', 'worker'],
-      ].sort(([a], [b]) => a.localeCompare(b)),
-    );
+    ).toEqual([...expected].sort(([a], [b]) => a.localeCompare(b)));
   });
 
   it('refuses a model outside the roles without calling CommandCode', async () => {

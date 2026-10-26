@@ -47,14 +47,18 @@ export class RunRegistry {
   }
 }
 
-/** Models a run may call: the turn roles' models plus its own. */
+/**
+ * Models a run may call: the turn roles' models plus its own. A model shared
+ * by several roles counts as the run's own role, otherwise as the worker's
+ * (the safety judge runs on the worker model).
+ */
 export function roleForModel(
   model: unknown,
   run: SasacodeRun,
 ): RoleName | undefined {
   if (typeof model !== 'string') return undefined;
   if (model === run.model) return run.role;
-  for (const role of ['chat', 'planner', 'worker'] as const)
+  for (const role of ['worker', 'planner', 'chat'] as const)
     if (roles[role].model === model) return role;
   return undefined;
 }

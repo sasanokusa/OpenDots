@@ -103,7 +103,13 @@ const CONTEXT_WINDOW = 131_072;
 
 export function sasacodeConfig(options: SasacodeConfigOptions) {
   const base = `http://127.0.0.1:${options.port}`;
-  const models = [roles.chat, roles.planner, roles.worker];
+  // Roles may share a model; it gets the largest output budget among them.
+  const models = new Map<string, number>();
+  for (const role of [roles.chat, roles.planner, roles.worker])
+    models.set(
+      role.model,
+      Math.max(models.get(role.model) ?? 0, role.maxOutputTokens ?? 8000),
+    );
   const secret = [
     `${options.appDir}/.env*`,
     `${options.appDir}/data/*.sqlite*`,
@@ -124,13 +130,13 @@ export function sasacodeConfig(options: SasacodeConfigOptions) {
       },
     },
     modelOverrides: Object.fromEntries(
-      models.map((role) => {
-        const price = prices[role.model];
+      [...models].map(([model, maxOutput]) => {
+        const price = prices[model];
         return [
-          `${PROVIDER}/${role.model}`,
+          `${PROVIDER}/${model}`,
           {
             contextWindow: CONTEXT_WINDOW,
-            maxOutput: role.maxOutputTokens ?? 8000,
+            maxOutput,
             reasoning: true,
             ...(price && {
               price: {

@@ -19,7 +19,7 @@ export interface RoleConfig {
 export const roles: Record<RoleName, RoleConfig> = {
   router: { model: 'typesafe/jev', api: 'systemone' },
   chat: {
-    model: 'xiaomi/mimo-v2.6-flash',
+    model: 'deepseek/deepseek-v4.1-flash',
     api: 'chat',
     monthlyCapUSD: 20,
     weeklyTargetUSD: 2.5,
