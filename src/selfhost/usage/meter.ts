@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import {
+  isPeakHour,
   limits,
   policy,
   prices as defaultPrices,
@@ -122,7 +123,7 @@ export class UsageMeter implements UsageRecorder {
   }
 
   record(record: UsageRecord): StoredUsage {
-    const costUSD = this.cost(record.model, record);
+    const costUSD = this.cost(record.model, record, record.at);
     const result = this.db
       .prepare(
         `INSERT INTO sh_usage(at, role, model, endpoint, thread_id, run_id,
@@ -157,15 +158,16 @@ export class UsageMeter implements UsageRecorder {
     return row;
   }
 
-  cost(model: string, tokens: TokenCounts): number {
+  cost(model: string, tokens: TokenCounts, at = this.now()): number {
     const price = this.prices[model];
     if (!price) return 0;
+    const rate = price.peak && isPeakHour(at) ? price.peak : price;
     const cached = tokens.cachedInputTokens;
     const fresh = Math.max(0, tokens.inputTokens - cached);
     const base =
-      (fresh * price.inputPerM +
-        cached * (price.cacheReadPerM ?? price.inputPerM) +
-        tokens.outputTokens * price.outputPerM) /
+      (fresh * rate.inputPerM +
+        cached * (price.cacheReadPerM ?? rate.inputPerM) +
+        tokens.outputTokens * rate.outputPerM) /
       1e6;
     const row = this.db
       .prepare('SELECT factor FROM sh_calibration WHERE model = ?')

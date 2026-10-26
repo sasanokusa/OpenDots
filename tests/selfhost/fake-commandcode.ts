@@ -317,6 +317,7 @@ export async function startFakeCommandCode(
             'xiaomi/mimo-v2.6-flash',
             'xiaomi/mimo-v2.6-pro',
             'deepseek/deepseek-v4.1-flash',
+            'deepseek/deepseek-v4.1-flash-fast',
             'claude-sonnet-5-5',
           ].map((id) => ({ id, object: 'model', owned_by: 'fake' })),
         });

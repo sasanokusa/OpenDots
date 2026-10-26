@@ -2,7 +2,7 @@
 
 ## このForkで変わること
 
-このForkは、OpenDots本体の会話保存をCopilotKit IntelligenceからSQLite（`DATABASE_PATH`の1ファイル）に置き換え、モデル呼び出しをすべてCommandCodeのProvider APIに向けます。追加したコードは`src/selfhost/`にあり、本体のファイルには差し込み口だけを足しています。`MODEL_ROUTER=on`にすると、Jevが依頼ごとに回し先を決めます。会話と作業はDeepSeek V4.1 Flash、計画はMiMo-V2.6-Pro、行き詰まったときの相談はClaude Sonnet 5.5が受け持ちます。ほかに、使用量メーター、夜間のバックログ実行、Discord DMを追加し、画面を日本語にしています。設計の詳細は`OpenDots_Fork_設計書.md`にあります。計画書の`OpenDots_Fork_計画書.md`と同じ場所に置いてあり、リポジトリの外にあるため、ここにはリンクを張りません。
+このForkは、OpenDots本体の会話保存をCopilotKit IntelligenceからSQLite（`DATABASE_PATH`の1ファイル）に置き換え、モデル呼び出しをすべてCommandCodeのProvider APIに向けます。追加したコードは`src/selfhost/`にあり、本体のファイルには差し込み口だけを足しています。`MODEL_ROUTER=on`にすると、Jevが依頼ごとに回し先を決めます。会話と作業はDeepSeek V4.1 Flash Fast、計画はMiMo-V2.6-Pro、行き詰まったときの相談はClaude Sonnet 5.5が受け持ちます。ほかに、使用量メーター、夜間のバックログ実行、Discord DMを追加し、画面を日本語にしています。設計の詳細は`OpenDots_Fork_設計書.md`にあります。計画書の`OpenDots_Fork_計画書.md`と同じ場所に置いてあり、リポジトリの外にあるため、ここにはリンクを張りません。
 
 `CONVERSATION_BACKEND`で本家の動作にも戻せます。`selfhost`はSQLite、`intelligence`は本家どおりです。未設定なら、Intelligenceのキーがないときは`selfhost`、あるときは`intelligence`になります。
 
@@ -27,7 +27,7 @@ cp .env.example .env
 CONVERSATION_BACKEND=selfhost
 MODEL_ROUTER=off
 COMMAND_CODE_API_KEY=ここにCommandCodeのキー
-OPENAI_MODEL=deepseek/deepseek-v4.1-flash
+OPENAI_MODEL=deepseek/deepseek-v4.1-flash-fast
 WEB_SEARCH_PROVIDER=disabled
 DO_NOT_TRACK=1
 COPILOTKIT_TELEMETRY_DISABLED=true
@@ -64,13 +64,13 @@ Dot Computerを使う場合は、`docs/COMPUTERS.md`に従ってsupervisorをDoc
 
 `.env`で`MODEL_ROUTER=on`にして、サーバーを再起動します。`OPENAI_MODEL`は使われなくなり、モデルは`src/selfhost/config/models.ts`の役割ごとの設定で決まります。モデルIDとしきい値を変えるときも、このファイルだけを編集します。
 
-| 役割       | モデル                       | 受け持ち                                                                                                                                                                                                                                                                              |
-| ---------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| router     | typesafe/jev                 | `/systemone`で依頼を分類します。回し先（chat、planner、worker）と、外部送信・削除・課金・本番反映を含む度合い（high_impact）を1回で答えます。3秒で打ち切り、失敗したときは固定ルール（600文字超か手順3つ以上ならplanner、それ以外はchat）で決めます。                                 |
-| chat       | deepseek/deepseek-v4.1-flash | 会話の窓口です。作業は`delegate_tasks`で1回2件までワーカーに渡します。3件以上、見通しが立たない、同じ作業でワーカーが2回続けて失敗した、渡す作業がhigh_impactと判定された、のどれかなら`handover_to_planner`でplannerに引き継ぎます（1ターン1回）。Dot Computerのツールは持ちません。 |
-| planner    | xiaomi/mimo-v2.6-pro         | 計画と最終チェックです。本体の全ツール、`delegate_tasks`（同時3件、1回6件まで）、`ask_advisor`を持ちます。                                                                                                                                                                            |
-| worker     | deepseek/deepseek-v4.1-flash | 委任された作業を実行します（1件5分、ループ20回まで）。Jevが単純な作業と判定した依頼を直接受けることもあります。ブラウザ操作はDotごとに1件ずつです。                                                                                                                                   |
-| escalation | claude-sonnet-5-5            | `ask_advisor`からだけ呼ばれます。ツールは持たず、診断、修正後の計画、パッチを返します。1日3回、1ターン2回までです。                                                                                                                                                                   |
+| 役割       | モデル                            | 受け持ち                                                                                                                                                                                                                                                                              |
+| ---------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| router     | typesafe/jev                      | `/systemone`で依頼を分類します。回し先（chat、planner、worker）と、外部送信・削除・課金・本番反映を含む度合い（high_impact）を1回で答えます。3秒で打ち切り、失敗したときは固定ルール（600文字超か手順3つ以上ならplanner、それ以外はchat）で決めます。                                 |
+| chat       | deepseek/deepseek-v4.1-flash-fast | 会話の窓口です。作業は`delegate_tasks`で1回2件までワーカーに渡します。3件以上、見通しが立たない、同じ作業でワーカーが2回続けて失敗した、渡す作業がhigh_impactと判定された、のどれかなら`handover_to_planner`でplannerに引き継ぎます（1ターン1回）。Dot Computerのツールは持ちません。 |
+| planner    | xiaomi/mimo-v2.6-pro              | 計画と最終チェックです。本体の全ツール、`delegate_tasks`（同時3件、1回6件まで）、`ask_advisor`を持ちます。                                                                                                                                                                            |
+| worker     | deepseek/deepseek-v4.1-flash-fast | 委任された作業を実行します（1件5分、ループ20回まで）。Jevが単純な作業と判定した依頼を直接受けることもあります。ブラウザ操作はDotごとに1件ずつです。                                                                                                                                   |
+| escalation | claude-sonnet-5-5                 | `ask_advisor`からだけ呼ばれます。ツールは持たず、診断、修正後の計画、パッチを返します。1日3回、1ターン2回までです。                                                                                                                                                                   |
 
 回し先は次の順で決まります。依頼が`/plan`か`/escalate`で始まるときはplannerです。そうでなければJevに聞き、high_impactが0.7以上ならplannerで、計画と最終チェックを必須にします。選んだ回し先の確率が0.6未満のときもplannerです。どちらでもなければJevの選択に従い、最後に使用量のポリシーで補正します。判定はすべて`sh_route_decisions`テーブルに残ります。1ターンの制限時間は`TURN_TIME_LIMIT_MS`で、既定は10分です。
 
@@ -106,7 +106,7 @@ Dot Computerを使う場合は、`docs/COMPUTERS.md`に従ってsupervisorをDoc
 
 - bashはサーバーの上で直接、アプリと同じユーザーで動きます。sudoは使えません。
 - 読むだけのコマンド（`uptime`、`df`、`free`、`systemctl status`、`journalctl -u`、`docker ps`など）は確認なしで動きます。一覧は`src/selfhost/sasacode/config.ts`の`READ_ONLY_COMMANDS`です。`;`や`|`でつないだコマンドは、全部が一覧に当てはまるときだけ通ります。
-- それ以外は、既定ではsasacodeのagentモードでモデルが1件ずつ安全かを判定し、危ないと判断したものだけ承認を求めます。判定には速くて安いDeepSeek V4.1 Flash（ワーカー役のモデル）を使い、費用はワーカー役として記録されます。ただし会話役も同じモデルなので、会話役のターンの中の判定は会話役の費用に入ります。Webの会話画面に出るカードか、DiscordのDMに届くボタンで「許可」か「拒否」を選びます。先に答えたほうが有効で、5分答えがなければ拒否になります。
+- それ以外は、既定ではsasacodeのagentモードでモデルが1件ずつ安全かを判定し、危ないと判断したものだけ承認を求めます。判定には速くて安いDeepSeek V4.1 Flash Fast（ワーカー役のモデル）を使い、費用はワーカー役として記録されます。ただし会話役も同じモデルなので、会話役のターンの中の判定は会話役の費用に入ります。Webの会話画面に出るカードか、DiscordのDMに届くボタンで「許可」か「拒否」を選びます。先に答えたほうが有効で、5分答えがなければ拒否になります。
 - 判定のしかたは`SASACODE_PERMISSION`で変えられます。`agent`（既定、モデルが判定）、`edits`（作業ディレクトリ内の読み書きだけ確認なし、ほかはすべて承認）、`ask`（すべて承認）、`auto`（禁止ルール以外はすべて実行）です。
 - `.env`、`~/.ssh`、`~/.config`、トークンやAPIキーを含むコマンドは、読み書きとも禁止しています。
 - `SASACODE_PRIVATE_PATHS`に並べたディレクトリは、ファイルの読み書きと、そのパスを含むコマンドを禁止します。Googleの許可情報の置き場所（下の「外部サービスをつなぐ」）を入れておきます。コマンドの文字列で見ているので、別の書き方で回り込まれる余地は残ります。最後の守りはagentモードの判定です。
@@ -182,6 +182,8 @@ GitHubの公式MCPサーバーを、読むだけで使います。
 サイドバーのUsageパネルには、5時間・週・月の3本のバー（上限は$14、$35、$70）、役割別の消化額、月の理想ペース（1日あたり$70÷30）との差、働いているポリシーが出ます。同じ内容が`GET /api/selfhost/usage`で取れます。金額はトークン数に設定ファイルの単価を掛けた推計で、実請求とは少しずれます。補正の方法は「週次の見直し」にあります。
 
 枠の数え方はCommandCodeに合わせています。5時間枠と週枠は、枠が空いている状態で最初にリクエストした時刻に始まり、ちょうど5時間後・7日後にリセットされます（決まった時刻や曜日はありません）。月の枠は課金日にリセットされるので、`USAGE_MONTH_START_DAY`に課金日（1から31、Asia/Tokyo）を入れます。CommandCodeの利用状況画面に「Resets on Oct 22」とあれば`22`です。
+
+費用は`src/selfhost/config/models.ts`の料金表で計算します。DeepSeekは、CommandCodeの混雑時間帯（平日のUTC 1〜4時と6〜10時、日本時間の10〜13時と15〜19時）に入力と出力の単価が2倍になるので、その時間の呼び出しは高い単価で数えます。
 
 メーターが数えられるのはOpenDotsからの呼び出しだけです。CLIなど別の道具からもCommandCodeを使っている場合は、パネルの「CommandCodeの表示と合わせる」に利用状況画面の数字（各枠の%と「Resets in 1d 15h」の部分）を入れてください。その枠がリセットされるまで、OpenDots外の消化分として足し込まれ、ポリシーの判定にも使われます。APIでは次のように送れます。
 
@@ -433,7 +435,7 @@ GROUP BY model ORDER BY est_usd DESC;
 curl -s -X PUT http://127.0.0.1:4310/api/selfhost/usage/calibration \
   -H "Authorization: Bearer $OWNER_TOKEN" \
   -H "content-type: application/json" \
-  -d '{"model":"deepseek/deepseek-v4.1-flash","factor":1.2}'
+  -d '{"model":"deepseek/deepseek-v4.1-flash-fast","factor":1.2}'
 ```
 
 係数は0より大きく10以下で、`GET /api/selfhost/usage/calibration`で現在の値を読めます。`OWNER_TOKEN`を設定していないときは、`Authorization`の行は不要です。

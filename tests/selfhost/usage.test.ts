@@ -189,6 +189,42 @@ describe('UsageMeter cost', () => {
     expect(cost).toBeCloseTo((200 * 0.2) / 1e6, 12);
   });
 
+  it('charges peak prices during peak hours on weekdays only', () => {
+    const meter = open();
+    const tokens = {
+      inputTokens: 1_000_000,
+      cachedInputTokens: 0,
+      outputTokens: 1_000_000,
+    };
+    const model = 'deepseek/deepseek-v4.1-flash-fast';
+    // Monday 2026-10-26: 02:00 UTC is peak, 05:00 UTC is not.
+    expect(meter.cost(model, tokens, Date.UTC(2026, 9, 26, 2))).toBeCloseTo(
+      1.48,
+      10,
+    );
+    expect(meter.cost(model, tokens, Date.UTC(2026, 9, 26, 5))).toBeCloseTo(
+      0.74,
+      10,
+    );
+    // Saturday at the same hour is off-peak.
+    expect(meter.cost(model, tokens, Date.UTC(2026, 9, 24, 2))).toBeCloseTo(
+      0.74,
+      10,
+    );
+    // Cached input keeps its own price at peak.
+    expect(
+      meter.cost(
+        model,
+        {
+          inputTokens: 1_000_000,
+          cachedInputTokens: 1_000_000,
+          outputTokens: 0,
+        },
+        Date.UTC(2026, 9, 26, 7),
+      ),
+    ).toBeCloseTo(0.016, 10);
+  });
+
   it('applies the calibration factor and persists it', () => {
     const meter = open();
     const tokens = {

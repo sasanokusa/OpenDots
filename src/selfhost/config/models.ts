@@ -19,7 +19,7 @@ export interface RoleConfig {
 export const roles: Record<RoleName, RoleConfig> = {
   router: { model: 'typesafe/jev', api: 'systemone' },
   chat: {
-    model: 'deepseek/deepseek-v4.1-flash',
+    model: 'deepseek/deepseek-v4.1-flash-fast',
     api: 'chat',
     monthlyCapUSD: 20,
     weeklyTargetUSD: 2.5,
@@ -37,7 +37,7 @@ export const roles: Record<RoleName, RoleConfig> = {
     maxIterations: 12,
   },
   worker: {
-    model: 'deepseek/deepseek-v4.1-flash',
+    model: 'deepseek/deepseek-v4.1-flash-fast',
     api: 'chat',
     monthlyCapUSD: 60,
     weeklyTargetUSD: 9,
@@ -60,6 +60,17 @@ export interface ModelPrice {
   inputPerM: number;
   outputPerM: number;
   cacheReadPerM?: number;
+  /** Input and output prices during CommandCode's peak hours (`isPeakHour`). */
+  peak?: { inputPerM: number; outputPerM: number };
+}
+
+/** CommandCode's peak pricing: 01–04 and 06–10 UTC, Monday to Friday. */
+export function isPeakHour(at: number): boolean {
+  const date = new Date(at);
+  const day = date.getUTCDay();
+  if (day === 0 || day === 6) return false;
+  const hour = date.getUTCHours();
+  return (hour >= 1 && hour < 4) || (hour >= 6 && hour < 10);
 }
 export const prices: Record<string, ModelPrice> = {
   'typesafe/jev': { inputPerM: 0.042, outputPerM: 0 },
@@ -73,10 +84,18 @@ export const prices: Record<string, ModelPrice> = {
     outputPerM: 0.87,
     cacheReadPerM: 0.0036,
   },
+  // CommandCode's pricing page, 2026-10-26.
   'deepseek/deepseek-v4.1-flash': {
-    inputPerM: 0.0214,
-    outputPerM: 1.32,
-    cacheReadPerM: 0.0165,
+    inputPerM: 0.15,
+    outputPerM: 0.6,
+    cacheReadPerM: 0.003,
+    peak: { inputPerM: 0.3, outputPerM: 1.2 },
+  },
+  'deepseek/deepseek-v4.1-flash-fast': {
+    inputPerM: 0.16,
+    outputPerM: 0.58,
+    cacheReadPerM: 0.016,
+    peak: { inputPerM: 0.32, outputPerM: 1.16 },
   },
   'claude-sonnet-5-5': { inputPerM: 2, outputPerM: 10, cacheReadPerM: 0.2 },
 };

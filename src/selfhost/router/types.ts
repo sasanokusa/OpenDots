@@ -27,7 +27,7 @@ export interface TurnPlanInput {
 
 export interface TurnPlan {
   role: RoleName;
-  /** CommandCode model id for this role, e.g. `deepseek/deepseek-v4.1-flash`. */
+  /** CommandCode model id for this role, e.g. `deepseek/deepseek-v4.1-flash-fast`. */
   model: string;
   adapter: ChatAdapter;
   tools: ToolDefinition[];
